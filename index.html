@@ -264,7 +264,19 @@ label.btn{cursor:pointer}
 .toast{position:fixed;bottom:2rem;right:2rem;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius);padding:12px 18px;font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px;z-index:9999;transform:translateY(100px);opacity:0;transition:all .3s;pointer-events:none;box-shadow:0 8px 30px rgba(108,63,255,.15)}
 .toast.show{transform:translateY(0);opacity:1}
 .toast-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.ai-msg{display:flex;gap:10px;align-items:flex-start}
+.api-prog{display:none;width:260px;position:fixed;bottom:5.75rem;right:2rem;z-index:10010;background:#fff;border:1.5px solid var(--border2);border-radius:var(--radius-lg);padding:12px 14px;box-shadow:0 10px 40px rgba(26,21,53,.14);pointer-events:auto}
+.api-prog.show{display:block}
+.api-prog-title{font-size:12px;font-weight:700;color:var(--text);letter-spacing:-.2px;display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.api-prog-spinner{width:16px;height:16px;border-radius:50%;border:2px solid var(--surface2);border-top-color:var(--accent);animation:apiSpin .8s linear infinite;flex-shrink:0}
+@keyframes apiSpin{to{transform:rotate(360deg)}}
+.api-prog-track{height:9px;background:var(--surface2);border-radius:999px;overflow:hidden;position:relative}
+.api-prog-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#6c3fff,#ff4fc8);width:0%;transition:width .35s cubic-bezier(.4,0,.2,1)}
+.api-prog-track.waiting .api-prog-fill{width:94%;transition:none;opacity:.55;animation:apiWaitPulse 1s ease-in-out infinite alternate}
+@keyframes apiWaitPulse{from{opacity:.35;width:82%}to{opacity:.85;width:100%}}
+.api-prog-meta{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-top:7px}
+.api-prog-pct{font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--accent);white-space:nowrap}
+.api-prog-sub{font-size:10px;line-height:1.35;color:var(--text3);font-weight:500;flex:1;min-height:26px}
+.api-msg{display:flex;gap:10px;align-items:flex-start}
 .ai-msg-user{flex-direction:row-reverse}
 .ai-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;background:linear-gradient(135deg,#6c3fff,#ff4fc8)}
 .ai-msg-user .ai-avatar{background:var(--surface2);font-size:12px;font-weight:700;color:var(--accent)}
@@ -296,10 +308,7 @@ label.btn{cursor:pointer}
     <div class="field"><label>Wachtwoord</label><input type="password" id="lPass" placeholder="••••••••" autocomplete="current-password"></div>
     <button class="login-btn" onclick="doLogin()">Inloggen →</button>
     <div class="login-err" id="loginErr">❌ Inloggen mislukt.</div>
-    <div class="demo-accounts">
-      <p>Demo-accounts — klik om in te vullen</p>
-      <div class="demo-row" onclick="fillLogin('admin@gmail.com','')"><span class="demo-creds">admin@gmail.com</span><span class="demo-badge badge-admin">✨ Admin</span></div>
-    </div>
+    
   </div>
 </div>
 
@@ -481,7 +490,7 @@ label.btn{cursor:pointer}
         </div>
         <div class="sec-label">Gekoppelde kolommen</div>
         <div class="mapped-list" id="mappedList"></div>
-        <div class="wiz-actions"><button class="btn btn-ghost btn-sm" onclick="wizStep(2)">← Aanpassen</button><button class="btn btn-primary" onclick="doImport()">🚀 Importeren</button></div>
+        <div class="wiz-actions"><button class="btn btn-ghost btn-sm" onclick="wizStep(2)">← Aanpassen</button><button class="btn btn-primary" id="importRunBtn" onclick="doImport()">🚀 Importeren</button></div>
       </div>
     </div>
 
@@ -565,6 +574,15 @@ label.btn{cursor:pointer}
 
 <div class="toast" id="toast"><div class="toast-dot" id="toastDot"></div><span id="toastMsg"></span></div>
 
+<div id="apiProg" class="api-prog" aria-live="polite">
+  <div class="api-prog-title"><span class="api-prog-spinner" id="apiProgSpin"></span><span id="apiProgTitle">Bezig...</span></div>
+  <div class="api-prog-track"><div id="apiProgFill" class="api-prog-fill"></div></div>
+  <div class="api-prog-meta">
+    <span class="api-prog-sub" id="apiProgSub"></span>
+    <span class="api-prog-pct" id="apiProgPct">0%</span>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ══ CONFIG ══
@@ -592,12 +610,18 @@ function setLoginError(msg){
 function clearLoginError(){document.getElementById('loginErr').style.display='none';}
 
 async function sbFetch(path, options={}){
+  // Use the logged-in user's JWT when available (required for RLS-protected tables)
+  let accessToken=null;
+  try{
+    const {data}=await getSb().auth.getSession();
+    accessToken=data?.session?.access_token||null;
+  }catch(_e){/* ignore - fall back to anon key */}
   const url=SUPABASE_URL+'/rest/v1/'+path;
   const res=await fetch(url,{
     ...options,
     headers:{
       'apikey':SUPABASE_KEY,
-      'Authorization':'Bearer '+SUPABASE_KEY,
+      'Authorization':'Bearer '+(accessToken||SUPABASE_KEY),
       'Content-Type':'application/json',
       ...options.headers
     }
@@ -636,18 +660,245 @@ function expandRecord(d){
   };
 }
 
+// Meer dan dit aantal klanten ⇒ split over meerdere requests (heeft RPC `append_import_data` nodig)
+// Hogere batches = minder roundtrips. Te hoog ⇒ groter request-body.
+const IMPORT_ROW_BATCH_SIZE=500;
+
+function chunkArray(arr, size){
+  if(!arr||!arr.length) return[];
+  const n=Math.max(1,size|0);
+  const out=[];
+  for(let i=0;i<arr.length;i+=n) out.push(arr.slice(i,i+n));
+  return out;
+}
+
+function mapImportRows(rows){
+  return (rows||[]).map(row=>({
+    id:row.id,
+    label:row.label,
+    date:row.import_date,
+    count:row.count,
+    data:(row.data||[]).map(expandRecord)
+  }));
+}
+
+async function fetchImportRowsRaw(){
+  return sbFetch('imports?select=*&order=import_date.asc');
+}
+
+async function reloadImportsStrict(){
+  const rows=await fetchImportRowsRaw();
+  return mapImportRows(rows);
+}
+
+async function rpcAppendImportData(importId, chunk){
+  // Eén json-parameter: PostgREST vindt de functie betrouwbaar (geen PGRST202 door arg-volgorde)
+  await sbFetch('rpc/append_import_data',{
+    method:'POST',
+    body:JSON.stringify({
+      p_body:{
+        import_id:String(importId||''),
+        chunk:chunk
+      }
+    })
+  });
+}
+
+function sbRestRoot(){
+  return SUPABASE_URL.replace(/\/*$/,'');
+}
+
+async function xhrSupabase({method='GET',path,body=null,headers={},timeoutMs=0,onUpload=null}){
+  let accessToken=null;
+  try{
+    const {data}=await getSb().auth.getSession();
+    accessToken=data?.session?.access_token||null;
+  }catch(_e){accessToken=null;}
+  const bearer=accessToken||SUPABASE_KEY;
+
+  return new Promise((resolve,reject)=>{
+    const xhr=new XMLHttpRequest();
+    xhr.open(method,`${sbRestRoot()}/rest/v1/${path}`,true);
+    // 0 = geen browse-timeout (XHR); los van Postgres statement_timeout
+    xhr.timeout=(typeof timeoutMs==='number'&&timeoutMs>=0)?timeoutMs:0;
+
+    xhr.setRequestHeader('apikey',SUPABASE_KEY);
+    xhr.setRequestHeader('Authorization','Bearer '+bearer);
+    if(body!=null)xhr.setRequestHeader('Content-Type','application/json');
+
+    Object.entries(headers).forEach(([k,v])=>xhr.setRequestHeader(k,v));
+
+    if(body!=null&&xhr.upload&&onUpload){
+      xhr.upload.addEventListener('progress',event=>{
+        onUpload(event);
+      });
+      xhr.upload.addEventListener('load',()=>{
+        apiProgWaitingServer(true);
+      });
+    }
+
+    xhr.addEventListener('load',()=>{
+      apiProgWaitingServer(false);
+      const txt=xhr.responseText||'';
+      if(xhr.status<200||xhr.status>=300){
+        reject(new Error('HTTP '+xhr.status+': '+txt.slice(0,220)));
+        return;
+      }
+      if(!txt.trim()) resolve(null);
+      else{
+        try{resolve(JSON.parse(txt));}
+        catch(_e){resolve(txt);}
+      }
+    });
+    xhr.addEventListener('error',()=>{
+      apiProgWaitingServer(false);
+      reject(new Error('Netwerkfout tijdens aanroep'));
+    });
+    xhr.addEventListener('timeout',()=>{
+      apiProgWaitingServer(false);
+      reject(new Error('Timeout: request duurde te lang'));
+    });
+
+    xhr.send(body==null?null:body);
+  });
+}
+
+function apiProgSetVisible(show){
+  const el=document.getElementById('apiProg');
+  if(!el)return;
+  if(show) el.classList.add('show');
+  else el.classList.remove('show');
+}
+function apiProgReset(){
+  const fill=document.getElementById('apiProgFill');
+  const tr=fill?.parentElement;
+  const pctEl=document.getElementById('apiProgPct');
+  const sub=document.getElementById('apiProgSub');
+  const ttl=document.getElementById('apiProgTitle');
+  if(fill){
+    fill.style.width='0%';
+  }
+  if(tr) tr.classList.remove('waiting');
+  if(pctEl) pctEl.textContent='0%';
+  if(sub) sub.textContent='';
+  if(ttl) ttl.textContent='Bezig…';
+}
+function apiProgWaitingServer(on){
+  const fill=document.getElementById('apiProgFill');
+  const tr=fill?.parentElement;
+  const sub=document.getElementById('apiProgSub');
+  if(!fill||!tr)return;
+  if(on){
+    tr.classList.add('waiting');
+    if(sub)sub.textContent='Reactie van database ontvangen…';
+    const pctEl=document.getElementById('apiProgPct');
+    if(pctEl)pctEl.textContent='⋯';
+  }else{
+    tr.classList.remove('waiting');
+  }
+}
+
+function apiProgSet(pct,text){
+  const fill=document.getElementById('apiProgFill');
+  const pctEl=document.getElementById('apiProgPct');
+  const sub=document.getElementById('apiProgSub');
+
+  const p=typeof pct==='number'&&isFinite(pct)?Math.max(0,Math.min(1,pct)):null;
+
+  if(text!=null&&sub) sub.textContent=text;
+
+  if(p==null)return;
+  if(fill) fill.style.width=Math.round(p*100)+'%';
+  if(pctEl)pctEl.textContent=Math.round(p*100)+'%';
+}
+
+async function saveOneImport(imp){
+  const slimRows=(imp.data||[]).map(slimRecord);
+  let slimChunks=chunkArray(slimRows,IMPORT_ROW_BATCH_SIZE);
+  if(!slimChunks.length) slimChunks=[[]];
+
+  async function rollbackImportRow(){
+    try{
+      await sbFetch('imports?id=eq.'+encodeURIComponent(imp.id),{method:'DELETE'});
+    }catch(_e){/* ignore */}
+  }
+
+  // Scalable storage:
+  // 1) insert only import metadata into `imports` (data stays empty/unused)
+  // 2) append customer rows into `import_rows` via RPC `append_import_data` in batches
+  try{
+    apiProgSet(0.02,'Import aanmaken in Supabase…');
+    const metaPayload={
+      id:imp.id,
+      label:imp.label,
+      import_date:imp.date,
+      count:imp.count,
+      data:[] // kept for backwards-compat, not used for large imports anymore
+    };
+    await sbFetch('imports',{
+      method:'POST',
+      headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify(metaPayload)
+    });
+
+    // Now append rows in batches
+    const total=slimChunks.length;
+    for(let i=0;i<total;i++){
+      // progress: 0% -> 88% across batches, starts at 0 cleanly
+      const p=total<=1?0.10:(i/(total))*0.88;
+      apiProgSet(p,'Opslaan batch '+(i+1)+' / '+total+' …');
+      try{
+        await rpcAppendImportData(imp.id, slimChunks[i]);
+      }catch(err){
+        const raw=String(err?.message||err||'');
+        const low=raw.toLowerCase();
+        const looksLikeMissingRpc=
+          low.includes('pgrst202')||
+          low.includes('http 404')||
+          raw.includes('Could not find the function')||
+          (low.includes('not found')&&low.includes('append_import_data'));
+
+        await rollbackImportRow();
+
+        if(looksLikeMissingRpc){
+          throw new Error(
+            'batch-insert mislukt: '+raw.slice(0,220)+'. '+
+            'Run `supabase/append_import_data.sql` in Supabase SQL editor (maakt `import_rows` + RPC). '+
+            'Herlaad daarna schema-cache (Project Settings → API) en hard refresh (Ctrl+F5).'
+          );
+        }
+        if(low.includes('http 413')||low.includes('payload too large')||low.includes('request entity too large')){
+          throw new Error(
+            'Eén batch is te groot ('+raw.slice(0,140)+'). Verlaag IMPORT_ROW_BATCH_SIZE (nu '+IMPORT_ROW_BATCH_SIZE+').'
+          );
+        }
+        throw err;
+      }
+    }
+
+    apiProgSet(0.88,'Alle batches opgeslagen — verifiëren…');
+    return;
+  }catch(err){
+    await rollbackImportRow();
+    throw err;
+  }
+}
+
 async function loadImports(){
   try{
     console.log('⏳ Laden uit Supabase...');
-    const rows=await sbFetch('imports?select=*&order=import_date.asc');
+    const rows=await fetchImportRowsRaw();
     console.log('✅ Supabase antwoord:', rows?.length, 'imports gevonden');
-    return (rows||[]).map(row=>({
-      id:row.id,
-      label:row.label,
-      date:row.import_date,
-      count:row.count,
-      data:(row.data||[]).map(expandRecord)
-    }));
+    // New scalable model: customer rows live in `import_rows`
+    // Load metadata first, then fetch rows per import (batched via range pagination).
+    const imports=mapImportRows(rows).map(i=>({...i, data:[]}));
+
+    for(const imp of imports){
+      const slimRows=await fetchAllImportRows(imp.id);
+      imp.data=slimRows.map(expandRecord);
+    }
+
+    return imports;
   }catch(e){
     console.error('❌ Supabase load error:',e);
     setTimeout(()=>{
@@ -657,25 +908,36 @@ async function loadImports(){
   }
 }
 
-async function saveOneImport(imp){
-  try{
-    const slim={
-      id:imp.id,
-      label:imp.label,
-      import_date:imp.date,
-      count:imp.count,
-      data:imp.data.map(slimRecord)
-    };
-    await sbFetch('imports',{
-      method:'POST',
-      headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
-      body:JSON.stringify(slim)
+async function fetchAllImportRows(importId){
+  const out=[];
+  const pageSize=5000;
+  for(let offset=0;;offset+=pageSize){
+    const page=await sbFetch(`import_rows?select=row_data&import_id=eq.${encodeURIComponent(importId)}&order=row_data.asc`,{
+      headers:{
+        // PostgREST pagination: Range headers
+        'Range-Unit':'items',
+        'Range':`${offset}-${offset+pageSize-1}`
+      }
     });
-    console.log('✅ Opgeslagen in Supabase:', imp.label);
-  }catch(e){
-    console.error('❌ Supabase save error:',e);
-    toast('❌ Opslaan mislukt: '+e.message.slice(0,100),'#ff4e6a');
+    const rows=(page||[]).map(r=>r.row_data);
+    out.push(...rows);
+    if(rows.length<pageSize) break;
   }
+  return out;
+}
+
+async function fetchSingleImportWithRows(importId){
+  const meta=await sbFetch(`imports?select=*&id=eq.${encodeURIComponent(importId)}`);
+  const row=Array.isArray(meta)?meta[0]:meta;
+  if(!row) return null;
+  const slimRows=await fetchAllImportRows(importId);
+  return{
+    id:row.id,
+    label:row.label,
+    date:row.import_date,
+    count:row.count,
+    data:slimRows.map(expandRecord)
+  };
 }
 
 async function deleteOneImport(id){
@@ -1083,10 +1345,25 @@ function updateDatePreview(d){
 }
 function wizStep(n){document.querySelectorAll('.wizard-step').forEach(s=>s.classList.remove('active'));document.getElementById('wiz'+n).classList.add('active');}
 async function doImport(){
+  const btn=document.getElementById('importRunBtn');
+
   const idxMap={};
   Object.entries(mapping).forEach(([idx,m])=>{if(m.field!=='__skip__')idxMap[m.field]=parseInt(idx);});
   const get=(row,key)=>idxMap[key]!==undefined?(row[idxMap[key]]||''):'';
   const newRecords=rawRows.map(row=>processRecord({voornaam:get(row,'voornaam'),achternaam:get(row,'achternaam'),naam:get(row,'naam'),adres:get(row,'adres'),telefoon:get(row,'telefoon'),email:get(row,'email'),orders:get(row,'orders'),omzet:get(row,'omzet'),eerste:get(row,'eerste'),laatste:get(row,'laatste'),vestiging:get(row,'vestiging')})).filter(r=>r.naam||r.voornaam);
+
+  if(!newRecords.length){
+    toast('❌ Geen geldige klantrijen gevonden voor import.', '#ff4e6a');
+    return;
+  }
+  if(window.__importBusy) return;
+
+  window.__importBusy=true;
+  if(btn){
+    btn.disabled=true;
+    btn.style.opacity='.55';
+    btn.dataset.wasbusy='1';
+  }
 
   // Use chosen date from picker, fallback to today
   const picker=document.getElementById('importDatePicker');
@@ -1096,19 +1373,92 @@ async function doImport(){
   const newId='imp_'+Date.now();
 
   const newImp={id:newId,label:weekLabel,date:now.toISOString(),count:newRecords.length,data:newRecords};
-  importHistory.push(newImp);
 
-  toast('⏳ Opslaan in database...','#6c3fff');
-  await saveOneImport(newImp);
+  apiProgReset();
+  apiProgSetVisible(true);
+  const ttl=document.getElementById('apiProgTitle');
+  if(ttl) ttl.textContent='Importeren';
+  apiProgSet(0,'Voorbereiden…');
 
-  rebuildAllData();
-  document.getElementById('ovDash').style.display='block';
-  document.getElementById('ovEmpty').style.display='none';
-  buildOvFilters();applyOvFilters();
-  wizStep(1);showPage('overview');
+  let ok=false;
 
-  const isReturn=newRecords.filter(d=>{const k=clientKey(d);return importHistory.slice(0,-1).some(imp=>imp.data.some(r=>clientKey(r)===k));}).length;
-  toast(`🎉 ${newRecords.length} klanten geïmporteerd · ${isReturn} terugkerend!`);
+  try{
+    await saveOneImport(newImp);
+
+    apiProgWaitingServer(false);
+    apiProgSet(0.93,'Data ophalen uit Supabase…');
+
+    // Load only the new import's rows immediately (fast UI update),
+    // without re-downloading all historical imports again.
+    const newFromDb=await fetchSingleImportWithRows(newId);
+    if(!newFromDb){
+      throw new Error('Import werd niet gevonden na opslag (rollback of policy). Vernieuw de pagina of controleer RLS-policies voor tabel imports.');
+    }
+
+    // Merge into current history (avoid full reload for large datasets)
+    importHistory=[...importHistory.filter(i=>i.id!==newId), newFromDb]
+      .sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
+    rebuildAllData();
+
+    if(allData.length){
+      document.getElementById('ovDash').style.display='block';
+      document.getElementById('ovEmpty').style.display='none';
+      buildOvFilters();
+      applyOvFilters();
+    }
+
+    wizStep(1);
+    showPage('overview');
+
+    const isReturn=newRecords.filter(d=>{
+      const k=clientKey(d);
+      return importHistory.slice(0,-1).some(imp=>imp.data.some(r=>clientKey(r)===k));
+    }).length;
+
+    apiProgWaitingServer(false);
+    apiProgSet(1,'✅ Klaar — data komt uit Supabase');
+
+    toast(`🎉 ${newRecords.length} klanten geïmporteerd · ${isReturn} terugkerend!`);
+    ok=true;
+    console.log('✅ Import opgeslagen en geverifieerd in DB:',newId,newImp.label);
+  }catch(e){
+    console.error('❌ Import mislukt:',e);
+
+    toast('❌ Import mislukt: '+(e?.message||'Onbekende fout').slice(0,160),'#ff4e6a');
+
+    try{
+      const rowsAgain=await fetchImportRowsRaw();
+      importHistory=mapImportRows(rowsAgain);
+    }catch(_restoreErr){
+      importHistory=[];
+    }
+    rebuildAllData();
+
+    if(allData.length){
+      document.getElementById('ovDash').style.display='block';
+      document.getElementById('ovEmpty').style.display='none';
+      buildOvFilters();
+      applyOvFilters();
+    }else{
+      document.getElementById('ovDash').style.display='none';
+      document.getElementById('ovEmpty').style.display='block';
+    }
+    // Wizard blijft open (succes-route roept wizStep(1)); bij fout gebruiker kan opnieuw proberen
+    showPage('import');
+    wizStep(3);
+  }finally{
+    window.__importBusy=false;
+    if(btn && btn.dataset.wasbusy){
+      btn.disabled=false;
+      btn.style.opacity='';
+      delete btn.dataset.wasbusy;
+    }
+    apiProgWaitingServer(false);
+    setTimeout(()=>{
+      apiProgSetVisible(false);
+      apiProgReset();
+    },ok?900:520);
+  }
 }
 
 // Oude deserializeImport niet meer nodig (loadImports gebruikt expandRecord)
