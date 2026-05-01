@@ -1,0 +1,2102 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LTV Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f7f4ff;--surface:#fff;--surface2:#f0ecff;--surface3:#e8e2ff;
+  --border:#e2dcf8;--border2:#cec6f5;
+  --text:#1a1535;--text2:#6b62a0;--text3:#a99fd4;
+  --accent:#6c3fff;--accent2:#5530d9;
+  --green:#00c98d;--green-bg:#e6fff7;
+  --amber:#ff9f2e;--amber-bg:#fff4e6;
+  --red:#ff4e6a;--red-bg:#fff0f3;
+  --pink:#ff4fc8;
+  --radius:10px;--radius-lg:16px;
+  font-family:'Plus Jakarta Sans',sans-serif;
+}
+body{background:var(--bg);color:var(--text);min-height:100vh}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+
+/* LOGIN */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f7f4ff 0%,#ffe8f8 50%,#e8f4ff 100%);position:relative;overflow:hidden}
+.blob1{position:absolute;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(108,63,255,.15),transparent 70%);top:-150px;right:-150px;pointer-events:none}
+.blob2{position:absolute;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(0,201,141,.12),transparent 70%);bottom:-100px;left:-100px;pointer-events:none}
+.login-card{position:relative;width:100%;max-width:400px;background:#fff;border:1.5px solid var(--border);border-radius:24px;padding:2.5rem;box-shadow:0 20px 60px rgba(108,63,255,.12);z-index:1}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:2rem}
+.login-logo-icon{width:42px;height:42px;background:linear-gradient(135deg,#6c3fff,#ff4fc8);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.login-logo-text{font-size:18px;font-weight:700;letter-spacing:-.4px}
+.login-title{font-size:24px;font-weight:700;letter-spacing:-.5px;margin-bottom:6px}
+.login-sub{font-size:13px;color:var(--text2);margin-bottom:2rem;line-height:1.6}
+.field{margin-bottom:1rem}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:7px}
+.field input{width:100%;padding:12px 14px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius);font-size:14px;font-family:'Plus Jakarta Sans',sans-serif;color:var(--text);outline:none;transition:border .2s,background .2s}
+.field input:focus{border-color:var(--accent);background:#fff}
+.login-btn{width:100%;padding:13px;background:linear-gradient(135deg,#6c3fff,#ff4fc8);border:none;border-radius:var(--radius);font-size:15px;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;color:#fff;cursor:pointer;transition:opacity .2s,transform .1s;margin-top:4px}
+.login-btn:hover{opacity:.9}
+.login-btn:active{transform:scale(.98)}
+.login-err{font-size:12px;color:var(--red);margin-top:10px;display:none;padding:8px 12px;background:var(--red-bg);border-radius:8px}
+.demo-accounts{margin-top:1.5rem;padding-top:1.25rem;border-top:1.5px dashed var(--border)}
+.demo-accounts p{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:10px;font-weight:700}
+.demo-row{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:8px;cursor:pointer;transition:background .15s}
+.demo-row:hover{background:var(--surface2)}
+.demo-creds{font-family:'DM Mono',monospace;font-size:12px;color:var(--text2)}
+.demo-badge{font-size:10px;padding:3px 10px;border-radius:20px;font-weight:700}
+.badge-admin{background:linear-gradient(135deg,#e8f4ff,#ffe8f8);color:var(--accent)}
+.badge-fn{background:var(--surface2);color:var(--accent)}
+
+/* APP SHELL */
+.app{display:none}
+.sidebar{position:fixed;left:0;top:0;width:240px;height:100vh;background:#fff;border-right:1.5px solid var(--border);padding:1.5rem 0;display:flex;flex-direction:column;z-index:100;overflow-y:auto}
+.sidebar-logo{display:flex;align-items:center;gap:10px;padding:0 1.25rem 1.5rem;border-bottom:1.5px solid var(--border)}
+.sidebar-logo-icon{width:36px;height:36px;background:linear-gradient(135deg,#6c3fff,#ff4fc8);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.sidebar-logo-text{font-size:15px;font-weight:700;letter-spacing:-.3px}
+.nav{padding:1rem 0;flex:1}
+.nav-section{padding:0 1.25rem;margin-bottom:.4rem;margin-top:.6rem;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 1.25rem;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;transition:all .15s;border-radius:10px;margin:2px 10px}
+.nav-item svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.nav-item:hover{color:var(--text);background:var(--surface2)}
+.nav-item.active{color:var(--accent);background:linear-gradient(135deg,rgba(108,63,255,.1),rgba(255,79,200,.08));font-weight:600}
+.sidebar-footer{padding:1rem 1.25rem;border-top:1.5px solid var(--border)}
+.user-block{display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px 10px;border-radius:12px;transition:background .15s}
+.user-block:hover{background:var(--surface2)}
+.avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.avatar-admin{background:linear-gradient(135deg,#6c3fff,#ff4fc8);color:#fff}
+.avatar-fn{background:linear-gradient(135deg,#00c98d,#00bcd4);color:#fff}
+.user-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.user-role{font-size:11px;color:var(--text3)}
+.logout-icon{margin-left:auto;opacity:.4;flex-shrink:0}
+.logout-icon svg{width:15px;height:15px;stroke:var(--text2);fill:none;stroke-width:2;stroke-linecap:round}
+
+/* MAIN */
+.main{margin-left:240px;padding:2.5rem;min-height:100vh}
+.page{display:none}.page.active{display:block}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:2rem;gap:1rem;flex-wrap:wrap}
+.page-title{font-size:26px;font-weight:700;letter-spacing:-.5px}
+.page-title span{color:var(--text2);font-weight:500}
+.header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border-radius:var(--radius);font-size:13px;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer;transition:all .15s;border:none;text-decoration:none}
+.btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.btn-primary{background:linear-gradient(135deg,#6c3fff,#ff4fc8);color:#fff}
+.btn-primary:hover{opacity:.9}
+.btn-ghost{background:#fff;color:var(--text2);border:1.5px solid var(--border2)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+label.btn{cursor:pointer}
+
+/* METRICS */
+.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:2rem}
+.metric-card{background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1.35rem;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s}
+.metric-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(108,63,255,.1)}
+.mc-stripe{position:absolute;top:0;left:0;right:0;height:3px}
+.mc-blue .mc-stripe{background:linear-gradient(90deg,#6c3fff,#ff4fc8)}
+.mc-green .mc-stripe{background:linear-gradient(90deg,#00c98d,#00bcd4)}
+.mc-amber .mc-stripe{background:linear-gradient(90deg,#ff9f2e,#ffd700)}
+.mc-purple .mc-stripe{background:linear-gradient(90deg,#9b7cff,#6c3fff)}
+.mc-red .mc-stripe{background:linear-gradient(90deg,#ff4e6a,#ff4fc8)}
+.metric-label{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px}
+.metric-value{font-size:30px;font-weight:700;letter-spacing:-.6px;line-height:1}
+.metric-sub{font-size:11px;color:var(--text3);margin-top:6px}
+.metric-trend{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;margin-top:8px}
+.trend-up{background:var(--green-bg);color:var(--green)}
+.trend-down{background:var(--red-bg);color:var(--red)}
+
+/* FILTERS */
+.filter-bar{display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;flex-wrap:wrap}
+.search-wrap{position:relative;flex:1;min-width:220px;max-width:320px}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none}
+.search-icon svg{width:15px;height:15px;stroke:var(--text3);fill:none;stroke-width:2;stroke-linecap:round}
+.search-input{width:100%;padding:10px 12px 10px 38px;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:'Plus Jakarta Sans',sans-serif;color:var(--text);outline:none;transition:border .2s}
+.search-input:focus{border-color:var(--accent)}
+.filter-select{padding:10px 12px;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:'Plus Jakarta Sans',sans-serif;color:var(--text);outline:none;cursor:pointer}
+.filter-select:focus{border-color:var(--accent)}
+.results-count{font-size:12px;color:var(--text3);margin-left:auto;font-weight:500;white-space:nowrap}
+
+/* CARDS */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
+.card{background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1.35rem;margin-bottom:1.25rem}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem}
+.card-title{font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px}
+
+/* BARS */
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.bar-label{font-size:12px;color:var(--text2);width:115px;flex-shrink:0;text-align:right;font-weight:500}
+.bar-bg{flex:1;height:26px;background:var(--surface2);border-radius:8px;overflow:hidden}
+.bar-fill{height:100%;border-radius:8px;display:flex;align-items:center;padding-left:10px;font-size:11px;font-weight:700;color:#fff;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.bar-pct{font-size:12px;color:var(--text2);width:38px;text-align:right;font-family:'DM Mono',monospace}
+.canvas-wrap{position:relative;width:100%;height:200px}
+
+/* RANKING TABLE */
+.rank-table{width:100%;border-collapse:collapse}
+.rank-table tr{cursor:pointer;transition:background .12s}
+.rank-table tr:hover td{background:var(--surface2)}
+.rank-table td{padding:11px 12px;border-bottom:1.5px solid var(--border);vertical-align:middle;font-size:13px}
+.rank-table tr:last-child td{border-bottom:none}
+.rank-num{font-family:'DM Mono',monospace;font-size:13px;font-weight:700;width:32px;color:var(--text3)}
+.rank-num.gold{color:#f5a623}
+.rank-num.silver{color:#a0a0b8}
+.rank-num.bronze{color:#c47a3a}
+.rank-name{font-weight:700;font-size:14px;color:var(--text)}
+.rank-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.rank-bar-wrap{flex:1;padding:0 16px}
+.rank-bar-bg{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;width:100%}
+.rank-bar-fill{height:100%;border-radius:4px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+.rank-pct{font-family:'DM Mono',monospace;font-size:15px;font-weight:700;width:52px;text-align:right}
+.rank-arrow{color:var(--text3);font-size:16px;padding-left:8px;opacity:.5}
+.rank-table tr:hover .rank-arrow{opacity:1;color:var(--accent)}
+.sort-btns{display:flex;gap:6px}
+.sort-btn{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--text2);transition:all .15s;font-family:'Plus Jakarta Sans',sans-serif}
+.sort-btn.active{background:linear-gradient(135deg,#6c3fff,#ff4fc8);color:#fff;border-color:transparent}
+.sort-btn:hover:not(.active){border-color:var(--accent);color:var(--accent)}
+
+/* VESTIGING DETAIL (drilldown) */
+.drilldown-overlay{position:fixed;inset:0;background:rgba(26,21,53,.5);z-index:200;display:none;align-items:center;justify-content:center;padding:2rem;backdrop-filter:blur(4px)}
+.drilldown-overlay.open{display:flex}
+.drilldown-panel{background:#fff;border-radius:24px;width:100%;max-width:860px;max-height:90vh;overflow-y:auto;box-shadow:0 32px 80px rgba(26,21,53,.25);animation:slideUp .3s cubic-bezier(.4,0,.2,1)}
+@keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.drilldown-header{padding:1.75rem 2rem 1.25rem;border-bottom:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:10;border-radius:24px 24px 0 0}
+.drilldown-title{font-size:20px;font-weight:700;letter-spacing:-.4px}
+.drilldown-subtitle{font-size:13px;color:var(--text2);margin-top:2px}
+.close-btn{width:36px;height:36px;border-radius:50%;background:var(--surface2);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text2);transition:background .15s;flex-shrink:0}
+.close-btn:hover{background:var(--surface3)}
+.drilldown-body{padding:1.75rem 2rem}
+.dd-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem}
+.dd-metric{background:var(--surface2);border-radius:12px;padding:1rem;text-align:center}
+.dd-metric .val{font-size:24px;font-weight:700;line-height:1}
+.dd-metric .lbl{font-size:10px;font-weight:700;color:var(--text3);margin-top:5px;text-transform:uppercase;letter-spacing:.5px}
+.dd-section{margin-bottom:1.5rem}
+.dd-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.period-tabs{display:flex;gap:6px;margin-bottom:1.25rem;flex-wrap:wrap}
+.period-tab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--text2);transition:all .15s;font-family:'Plus Jakarta Sans',sans-serif}
+.period-tab.active{background:linear-gradient(135deg,#6c3fff,#ff4fc8);color:#fff;border-color:transparent}
+.period-tab:hover:not(.active){border-color:var(--accent);color:var(--accent)}
+.chart-wrap{position:relative;height:220px;width:100%}
+.seg-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.seg-item{background:var(--surface2);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:12px}
+.seg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.seg-item-label{font-size:12px;font-weight:600;color:var(--text);flex:1}
+.seg-item-val{font-size:18px;font-weight:700;color:var(--text)}
+.seg-item-pct{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace}
+.dd-klanten-list{max-height:280px;overflow-y:auto}
+.dd-klant-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)}
+.dd-klant-row:last-child{border-bottom:none}
+.dd-klant-name{font-weight:600;font-size:13px;flex:1}
+.dd-klant-sub{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{padding:10px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);border-bottom:1.5px solid var(--border);white-space:nowrap;user-select:none}
+.tbl th.sortable{cursor:pointer}
+.tbl th.sortable:hover{color:var(--text2)}
+.tbl th.sorted{color:var(--accent);cursor:pointer}
+.sort-arrow{margin-left:3px}
+.tbl td{padding:10px 12px;border-bottom:1.5px solid var(--border);color:var(--text);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:var(--surface2)}
+.tbl-name{font-weight:700;font-size:13px}
+.tbl-sub{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);margin-top:2px}
+.tbl-num{font-family:'DM Mono',monospace;font-size:13px;font-weight:500}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.tag::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.tag-green{background:var(--green-bg);color:var(--green)}.tag-green::before{background:var(--green)}
+.tag-blue{background:rgba(108,63,255,.1);color:var(--accent)}.tag-blue::before{background:var(--accent)}
+.tag-amber{background:var(--amber-bg);color:var(--amber)}.tag-amber::before{background:var(--amber)}
+.tag-red{background:var(--red-bg);color:var(--red)}.tag-red::before{background:var(--red)}
+
+/* PAGINATION */
+.pagination{display:flex;align-items:center;justify-content:space-between;margin-top:1.25rem;padding-top:1.25rem;border-top:1.5px solid var(--border)}
+.pag-info{font-size:12px;color:var(--text3);font-weight:500}
+.pag-btns{display:flex;gap:5px}
+.pag-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:#fff;border:1.5px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer;color:var(--text2);transition:all .15s;font-family:'DM Mono',monospace}
+.pag-btn:hover{border-color:var(--accent);color:var(--accent)}
+.pag-btn.active{background:linear-gradient(135deg,#6c3fff,#ff4fc8);border-color:transparent;color:#fff}
+.pag-arrow{width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:#fff;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s}
+.pag-arrow:hover{border-color:var(--accent)}
+.pag-arrow svg{width:13px;height:13px;stroke:var(--text2);fill:none;stroke-width:2.5;stroke-linecap:round}
+.pag-arrow.disabled{opacity:.3;pointer-events:none}
+
+/* IMPORT WIZARD */
+.wizard-step{display:none}.wizard-step.active{display:block}
+.drop-zone{border:2px dashed var(--border2);border-radius:var(--radius-lg);padding:3.5rem;text-align:center;cursor:pointer;transition:all .2s;background:rgba(108,63,255,.02)}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:rgba(108,63,255,.04)}
+.drop-icon{font-size:48px;margin-bottom:1rem}
+.drop-title{font-size:17px;font-weight:700;margin-bottom:6px}
+.drop-sub{font-size:13px;color:var(--text2);margin-bottom:1.5rem}
+.sec-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:10px}
+.preview-wrap{overflow-x:auto;border:1.5px solid var(--border);border-radius:var(--radius-lg);margin-bottom:1.5rem}
+.prev-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.prev-tbl th{padding:8px 12px;background:var(--surface2);color:var(--text2);font-weight:600;border-bottom:1.5px solid var(--border);white-space:nowrap;text-align:left}
+.prev-tbl td{padding:7px 12px;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;color:var(--text);white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+.prev-tbl tr:last-child td{border-bottom:none}
+.map-grid{display:grid;gap:9px;margin-bottom:1.5rem}
+.map-row{display:grid;grid-template-columns:1fr 38px 1fr 30px;align-items:center;gap:10px;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius);padding:11px 14px}
+.map-row.ok{border-color:var(--green);background:var(--green-bg)}
+.map-row.warn{border-color:var(--amber);background:var(--amber-bg)}
+.map-source{font-size:12px;font-weight:600;font-family:'DM Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.map-sample{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.map-arrow{text-align:center;color:var(--text3);font-size:14px}
+.map-select{width:100%;padding:7px 10px;border:1.5px solid var(--border2);border-radius:8px;font-size:12px;font-family:'Plus Jakarta Sans',sans-serif;color:var(--text);background:#fff;outline:none;cursor:pointer}
+.map-select:focus{border-color:var(--accent)}
+.map-icon{text-align:center;font-size:16px}
+.legend{display:flex;gap:16px;margin-bottom:1rem;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);font-weight:500}
+.legend-dot{width:10px;height:10px;border-radius:3px}
+.sum-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:1.35rem}
+.sum-card{background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem;text-align:center}
+.sum-val{font-size:26px;font-weight:700;color:var(--text)}
+.sum-lbl{font-size:10px;font-weight:700;color:var(--text3);margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+.mapped-list{background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem;margin-bottom:1.25rem}
+.mapped-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+.mapped-item:last-child{border-bottom:none}
+.wiz-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:1.25rem}
+.btn-sm{padding:8px 16px;font-size:12px}
+.empty-state{text-align:center;padding:5rem;color:var(--text3)}
+.empty-state .es-icon{font-size:56px;margin-bottom:1rem}
+.empty-state .es-title{font-size:17px;font-weight:600;margin-bottom:8px;color:var(--text2)}
+.empty-state .es-sub{font-size:13px;margin-bottom:1.5rem}
+.toast{position:fixed;bottom:2rem;right:2rem;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius);padding:12px 18px;font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px;z-index:9999;transform:translateY(100px);opacity:0;transition:all .3s;pointer-events:none;box-shadow:0 8px 30px rgba(108,63,255,.15)}
+.toast.show{transform:translateY(0);opacity:1}
+.toast-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ai-msg{display:flex;gap:10px;align-items:flex-start}
+.ai-msg-user{flex-direction:row-reverse}
+.ai-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;background:linear-gradient(135deg,#6c3fff,#ff4fc8)}
+.ai-msg-user .ai-avatar{background:var(--surface2);font-size:12px;font-weight:700;color:var(--accent)}
+.ai-bubble{background:var(--surface2);border:1.5px solid var(--border);border-radius:14px 14px 14px 4px;padding:10px 14px;font-size:13px;color:var(--text);line-height:1.6;max-width:85%}
+.ai-msg-user .ai-bubble{background:linear-gradient(135deg,rgba(108,63,255,.12),rgba(255,79,200,.08));border-radius:14px 14px 4px 14px;border-color:rgba(108,63,255,.2)}
+.ai-suggestion{display:inline-block;margin:3px 3px 0 0;padding:4px 10px;background:#fff;border:1.5px solid var(--border2);border-radius:20px;font-size:11px;cursor:pointer;color:var(--accent);font-weight:500;transition:all .15s}
+.ai-suggestion:hover{background:var(--surface2);border-color:var(--accent)}
+.ai-suggestion-card{padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius);font-size:12px;color:var(--text2);cursor:pointer;transition:all .15s;line-height:1.4}
+.ai-suggestion-card:hover{border-color:var(--accent);color:var(--accent);background:#fff}
+.ai-typing{display:flex;gap:4px;padding:8px 12px}
+.ai-typing span{width:7px;height:7px;background:var(--text3);border-radius:50%;animation:aiDot 1.2s infinite}
+.ai-typing span:nth-child(2){animation-delay:.2s}
+.ai-typing span:nth-child(3){animation-delay:.4s}
+@keyframes aiDot{0%,80%,100%{opacity:.3;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
+.ai-msg-error .ai-bubble{background:var(--red-bg);border-color:var(--red);color:var(--red)}
+
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-wrap" id="loginScreen">
+  <div class="blob1"></div><div class="blob2"></div>
+  <div class="login-card">
+    <div class="login-logo"><div class="login-logo-icon">📊</div><div class="login-logo-text">LTV Dashboard</div></div>
+    <div class="login-title">Welkom terug! 👋</div>
+    <div class="login-sub">Log in om je klantendata te bekijken en analyseren.</div>
+    <div class="field"><label>E-mail</label><input type="email" id="lUser" placeholder="admin@gmail.com" autocomplete="email"></div>
+    <div class="field"><label>Wachtwoord</label><input type="password" id="lPass" placeholder="••••••••" autocomplete="current-password"></div>
+    <button class="login-btn" onclick="doLogin()">Inloggen →</button>
+    <div class="login-err" id="loginErr">❌ Inloggen mislukt.</div>
+    <div class="demo-accounts">
+      <p>Demo-accounts — klik om in te vullen</p>
+      <div class="demo-row" onclick="fillLogin('admin@gmail.com','')"><span class="demo-creds">admin@gmail.com</span><span class="demo-badge badge-admin">✨ Admin</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="appScreen" style="display:none">
+  <div class="sidebar">
+    <div class="sidebar-logo"><div class="sidebar-logo-icon">📊</div><div class="sidebar-logo-text">LTV Dashboard</div></div>
+    <div class="nav">
+      <div class="nav-section">Analyse</div>
+      <div class="nav-item active" onclick="showPage('overview')"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Overzicht</div>
+      <div class="nav-item" onclick="showPage('klanten')"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>Klanten</div>
+      <div class="nav-item" id="navVest" onclick="showPage('vestigingen')"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Vestigingen</div>
+      <div class="nav-item" onclick="showPage('cohort')"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>Cohortanalyse</div>
+      <div class="nav-section">Beheer</div>
+      <div class="nav-item" onclick="showPage('import')"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>CSV importeren</div>
+      <div class="nav-item" onclick="showPage('geschiedenis')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Importgeschiedenis</div>
+      <div class="nav-item" onclick="showPage('ai')" style="margin-top:4px"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 110 20A10 10 0 0112 2z"/><path d="M8 12h8M12 8v8" stroke-width="1.5"/></svg>✨ AI Assistent</div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="user-block" onclick="confirmLogout()">
+        <div class="avatar" id="sideAvatar"></div>
+        <div style="min-width:0;flex:1"><div class="user-name" id="sideUser"></div><div class="user-role" id="sideRole"></div></div>
+        <div class="logout-icon"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- OVERVIEW -->
+    <div class="page active" id="pageOverview">
+      <div class="page-header">
+        <div class="page-title" id="ovTitle">Overzicht <span id="ovSub"></span></div>
+        <div class="header-actions">
+          <button class="btn btn-ghost" onclick="exportCSV(filtered,'ltv-export')"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exporteren</button>
+        </div>
+      </div>
+      <div class="empty-state" id="ovEmpty">
+        <div class="es-icon">📂</div>
+        <div class="es-title">Nog geen data geladen</div>
+        <div class="es-sub">Importeer een CSV-bestand om te beginnen</div>
+        <button class="btn btn-primary" onclick="showPage('import')">CSV importeren →</button>
+      </div>
+      <div id="ovDash" style="display:none">
+        <div class="metrics" id="metricsRow"></div>
+        <div class="filter-bar" id="filterBar"></div>
+        <div class="grid-2" style="margin-bottom:1.25rem">
+          <div class="card" style="margin-bottom:0"><div class="card-header"><span class="card-title">Terugkeerfrequentie</span></div><div id="freqBars"></div></div>
+          <div class="card" style="margin-bottom:0"><div class="card-header"><span class="card-title">Segmentverdeling</span></div><div class="canvas-wrap"><canvas id="segChart"></canvas></div></div>
+        </div>
+        <div class="card" id="channelCard">
+          <div class="card-header"><span class="card-title">🌐 Kanaalvergelijking — Eigen website vs. Thuisbezorgd</span></div>
+          <div id="channelComparison"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Recente klanten</span><button class="btn btn-ghost" style="padding:6px 14px;font-size:12px" onclick="showPage('klanten')">Alle klanten →</button></div>
+          <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Voornaam</th><th>Achternaam</th><th>Vestiging</th><th>Bestellingen</th><th>Laatste bestelling</th><th>Segment</th></tr></thead><tbody id="recentBody"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KLANTEN -->
+    <div class="page" id="pageKlanten">
+      <div class="page-header">
+        <div class="page-title">Klanten <span id="klantCount"></span></div>
+        <div class="header-actions"><button class="btn btn-ghost" onclick="exportCSV(filtered,'ltv-klanten')"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exporteren</button></div>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="filter-bar" style="margin-bottom:1.25rem" id="klantenFilters"></div>
+        <div class="tbl-wrap">
+          <table class="tbl"><thead><tr>
+            <th class="sortable" onclick="sortBy('voornaam')" id="th-voornaam">Voornaam <span class="sort-arrow">↕</span></th>
+            <th class="sortable" onclick="sortBy('achternaam')" id="th-achternaam">Achternaam <span class="sort-arrow">↕</span></th>
+            <th class="sortable" onclick="sortBy('vestiging')" id="th-vestiging">Vestiging <span class="sort-arrow">↕</span></th>
+            <th class="sortable" onclick="sortBy('kanaal')" id="th-kanaal">Kanaal <span class="sort-arrow">↕</span></th>
+            <th class="sortable" onclick="sortBy('visitCount')" id="th-visitCount">Bezoeken <span class="sort-arrow">↕</span></th>
+            <th class="sortable" onclick="sortBy('orders')" id="th-orders">Bestellingen <span class="sort-arrow">↕</span></th>
+            <th class="sortable" onclick="sortBy('omzet')" id="th-omzet">Totaal besteed <span class="sort-arrow">↕</span></th>
+            <th class="sortable" onclick="sortBy('first')" id="th-first">Eerste bestelling <span class="sort-arrow">↕</span></th>
+            <th class="sortable" onclick="sortBy('last')" id="th-last">Laatste bestelling <span class="sort-arrow">↕</span></th>
+            <th class="sortable" onclick="sortBy('freq')" id="th-freq">Gem. interval <span class="sort-arrow">↕</span></th>
+            <th class="sortable" onclick="sortBy('seg')" id="th-seg">Segment <span class="sort-arrow">↕</span></th>
+          </tr></thead><tbody id="klantenBody"></tbody></table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+
+    <!-- VESTIGINGEN -->
+    <div class="page" id="pageVestigingen">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Vestigingen</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:4px">Klik op een vestiging voor gedetailleerde analyse</div>
+        </div>
+        <div class="header-actions">
+          <div class="sort-btns" id="vestSortBtns">
+            <button class="sort-btn active" onclick="setVestSort('pct')">% Terugkerend</button>
+            <button class="sort-btn" onclick="setVestSort('tot')">Meeste klanten</button>
+            <button class="sort-btn" onclick="setVestSort('wk')">Meest wekelijks</button>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div id="vestRankingTable"></div>
+      </div>
+    </div>
+
+    <!-- GESCHIEDENIS -->
+    <div class="page" id="pageGeschiedenis">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Importgeschiedenis</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:4px">Alle wekelijkse imports opgeslagen in je browser</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-ghost" style="border-color:#ff4e6a;color:#ff4e6a" onclick="confirmClearHistory()">🗑 Alle data wissen</button>
+        </div>
+      </div>
+      <div id="geschiedenisContent"></div>
+    </div>
+    <!-- COHORT -->
+    <div class="page" id="pageCohort">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Cohortanalyse</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:4px">Hoeveel klanten per instroom-week keren terug na 1, 2, 3... weken?</div>
+        </div>
+        <div class="header-actions">
+          <div class="sort-btns" id="cohortModeBtns">
+            <button class="sort-btn active" onclick="setCohortMode('retention')">Retentie %</button>
+            <button class="sort-btn" onclick="setCohortMode('count')">Aantal klanten</button>
+          </div>
+        </div>
+      </div>
+      <div id="cohortContent"></div>
+    </div>
+
+    <!-- IMPORT -->
+    <div class="page" id="pageImport">
+      <div class="page-header"><div class="page-title">📂 CSV importeren</div></div>
+      <div class="wizard-step active" id="wiz1">
+        <label for="csvFile">
+          <div class="drop-zone" id="dropZone">
+            <div class="drop-icon">📊</div>
+            <div class="drop-title">Sleep je CSV hier naartoe of klik om te kiezen</div>
+            <div class="drop-sub">Kolomnamen en volgorde maakt niet uit — het systeem herkent het automatisch.</div>
+            <span class="btn btn-primary">Bestand kiezen</span>
+          </div>
+        </label>
+        <input type="file" id="csvFile" accept=".csv,.txt" style="display:none" onchange="onFileChange(event)">
+        <div style="text-align:center;margin-top:1.5rem"><button class="btn btn-ghost" onclick="loadDemo()">🎉 Demo data laden</button></div>
+      </div>
+      <div class="wizard-step" id="wiz2">
+        <div style="margin-bottom:1.5rem"><div style="font-size:15px;font-weight:700;margin-bottom:4px">Kolommen koppelen</div><div style="font-size:13px;color:var(--text2)">Het systeem heeft de kolommen automatisch herkend. Controleer en pas aan waar nodig.</div></div>
+        <div class="sec-label">Voorbeeld van je data</div>
+        <div class="preview-wrap"><table class="prev-tbl" id="prevTbl"></table></div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Automatisch herkend</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>Controleer even</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--border2)"></div>Niet gebruikt</div>
+        </div>
+        <div class="sec-label">Kolom-koppeling</div>
+        <div class="map-grid" id="mapGrid"></div>
+        <div class="wiz-actions"><button class="btn btn-ghost btn-sm" onclick="wizStep(1)">← Terug</button><button class="btn btn-primary btn-sm" onclick="wizValidate()">Doorgaan →</button></div>
+      </div>
+      <div class="wizard-step" id="wiz3">
+        <div style="margin-bottom:1.25rem"><div style="font-size:15px;font-weight:700;margin-bottom:4px">✅ Bevestig import</div><div style="font-size:13px;color:var(--text2)">Controleer de samenvatting en klik op importeren.</div></div>
+        <div class="sum-grid" id="sumGrid"></div>
+        <div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem">
+          <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">📅 Datum van deze import</div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:11px;color:var(--text3);margin-bottom:5px">Kies de week van dit klantenbestand</div>
+              <input type="date" id="importDatePicker" style="padding:9px 12px;border:1.5px solid var(--border2);border-radius:var(--radius);font-size:13px;font-family:'Plus Jakarta Sans',sans-serif;color:var(--text);background:#fff;outline:none;cursor:pointer">
+            </div>
+            <div style="font-size:12px;color:var(--text2)" id="importDatePreview"></div>
+          </div>
+        </div>
+        <div class="sec-label">Gekoppelde kolommen</div>
+        <div class="mapped-list" id="mappedList"></div>
+        <div class="wiz-actions"><button class="btn btn-ghost btn-sm" onclick="wizStep(2)">← Aanpassen</button><button class="btn btn-primary" onclick="doImport()">🚀 Importeren</button></div>
+      </div>
+    </div>
+
+    <!-- AI ASSISTENT -->
+    <div class="page" id="pageAi">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#6c3fff,#ff4fc8);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">✨</div>
+          <div>
+            <div style="font-size:20px;font-weight:700;letter-spacing:-.4px">AI Data Assistent</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px">Stel vragen over jouw klantendata in gewoon Nederlands</div>
+          </div>
+        </div>
+        <div id="aiSnapBadges" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+
+      <!-- Stats row -->
+      <div id="aiStatsRow" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem"></div>
+
+      <!-- Suggestions chips -->
+      <div style="margin-bottom:1rem;display:flex;gap:6px;flex-wrap:wrap" id="aiChips">
+        <span class="ai-suggestion" onclick="askSuggestion(this)">Beste vestiging qua retentie?</span>
+        <span class="ai-suggestion" onclick="askSuggestion(this)">Website vs Thuisbezorgd vergelijking</span>
+        <span class="ai-suggestion" onclick="askSuggestion(this)">Hoeveel incidentele klanten activeren?</span>
+        <span class="ai-suggestion" onclick="askSuggestion(this)">Geef me een marketingadvies</span>
+        <span class="ai-suggestion" onclick="askSuggestion(this)">Welke vestigingen presteren onder gemiddelde?</span>
+        <span class="ai-suggestion" onclick="askSuggestion(this)">Hoeveel klanten dreig ik te verliezen?</span>
+        <span class="ai-suggestion" onclick="askSuggestion(this)">Verschil LTV website vs platform?</span>
+      </div>
+
+      <!-- Chat — full width single column -->
+      <div style="background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden">
+        <!-- Messages -->
+        <div id="aiMessages" style="overflow-y:auto;padding:1.25rem;display:flex;flex-direction:column;gap:14px;min-height:380px;max-height:460px">
+          <div class="ai-msg ai-msg-bot">
+            <div class="ai-avatar">✨</div>
+            <div class="ai-bubble">
+              Hoi! Ik ben je data-assistent. Ik heb toegang tot alle geïmporteerde klantendata en kan vragen beantwoorden over retentie, vestigingen, kanalen, LTV en meer. Klik op een suggestie hierboven of stel zelf een vraag.
+            </div>
+          </div>
+        </div>
+
+        <!-- Input -->
+        <div style="border-top:1.5px solid var(--border);padding:1rem 1.25rem;background:var(--bg)">
+          <div style="display:flex;gap:8px">
+            <input type="text" id="aiInput"
+              placeholder="Bijv: welke vestiging heeft de meeste terugkerende klanten?"
+              style="flex:1;padding:11px 14px;border:1.5px solid var(--border2);border-radius:var(--radius);font-size:13px;font-family:'Plus Jakarta Sans',sans-serif;color:var(--text);background:#fff;outline:none;transition:border .2s"
+              onkeydown="if(event.key==='Enter')sendAiMessage()"
+              onfocus="this.style.borderColor='var(--accent)'"
+              onblur="this.style.borderColor='var(--border2)'">
+            <button class="btn btn-primary" onclick="sendAiMessage()" id="aiSendBtn" style="padding:11px 20px;white-space:nowrap;flex-shrink:0">
+              Verstuur
+              <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:6px;display:flex;align-items:center;gap:4px">
+            <svg viewBox="0 0 24 24" style="width:10px;height:10px;stroke:var(--text3);fill:none;stroke-width:2;flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+            De AI ziet alleen geaggregeerde statistieken — geen namen of telefoonnummers
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- DRILLDOWN PANEL -->
+<div class="drilldown-overlay" id="drilldownOverlay" onclick="closeDrilldown(event)">
+  <div class="drilldown-panel" id="drilldownPanel">
+    <div class="drilldown-header">
+      <div><div class="drilldown-title" id="ddTitle"></div><div class="drilldown-subtitle" id="ddSubtitle"></div></div>
+      <button class="close-btn" onclick="closeDrilldownBtn()">✕</button>
+    </div>
+    <div class="drilldown-body" id="ddBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><div class="toast-dot" id="toastDot"></div><span id="toastMsg"></span></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ══ CONFIG ══
+const USERS={admin:{pass:'admin123',role:'admin',vestiging:null,label:'Admin',initials:'AD'},amsterdam:{pass:'pass1',role:'fn',vestiging:'Amsterdam-Noord',label:'Amsterdam-Noord',initials:'AN'},rotterdam:{pass:'pass2',role:'fn',vestiging:'Rotterdam-Centrum',label:'Rotterdam-Centrum',initials:'RC'},utrecht:{pass:'pass3',role:'fn',vestiging:'Utrecht',label:'Utrecht',initials:'UT'},haarlem:{pass:'pass4',role:'fn',vestiging:'Haarlem',label:'Haarlem',initials:'HA'}};
+
+// ══ STORAGE ══
+// ══ SUPABASE CONFIG ══
+const SUPABASE_URL='https://ungictkwdwqnvibrvtru.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuZ2ljdGt3ZHdxbnZpYnJ2dHJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNTg0NTgsImV4cCI6MjA5MjkzNDQ1OH0.-N0_QjVGGvYA8V4J9ApdnlK7EmxQD64TXf4cDY11QiY';
+const ADMIN_EMAIL_ALLOWLIST=['admin@gmail.com'];
+
+let sb=null;
+function getSb(){
+  if(sb) return sb;
+  if(!window.supabase?.createClient) throw new Error('Supabase client library niet geladen');
+  sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+  return sb;
+}
+
+function setLoginError(msg){
+  const el=document.getElementById('loginErr');
+  el.textContent=msg||'❌ Inloggen mislukt.';
+  el.style.display='block';
+}
+function clearLoginError(){document.getElementById('loginErr').style.display='none';}
+
+async function sbFetch(path, options={}){
+  const url=SUPABASE_URL+'/rest/v1/'+path;
+  const res=await fetch(url,{
+    ...options,
+    headers:{
+      'apikey':SUPABASE_KEY,
+      'Authorization':'Bearer '+SUPABASE_KEY,
+      'Content-Type':'application/json',
+      ...options.headers
+    }
+  });
+  const text=await res.text();
+  if(!res.ok){
+    console.error('Supabase error',res.status,text);
+    throw new Error('HTTP '+res.status+': '+text.slice(0,200));
+  }
+  return text?JSON.parse(text):null;
+}
+
+// Sla alleen de minimale velden op om ruimte te besparen
+function slimRecord(d){
+  return{
+    vn:d.voornaam||'',an:d.achternaam||'',
+    t:(d.telefoon||'').replace(/\D/g,'').slice(-9),
+    e:d.email||'',o:d.orders||1,
+    om:d.omzet||0,
+    k:d.kanaal||'platform',
+    f:d.first?d.first.toISOString().slice(0,10):null,
+    l:d.last?d.last.toISOString().slice(0,10):null,
+    v:d.vestiging||''
+  };
+}
+function expandRecord(d){
+  return{
+    voornaam:d.vn||'',achternaam:d.an||'',
+    naam:((d.vn||'')+' '+(d.an||'')).trim(),
+    telefoon:d.t||'',email:d.e||'',orders:d.o||1,
+    omzet:d.om||0,
+    kanaal:d.k||'platform',
+    first:d.f?new Date(d.f):null,
+    last:d.l?new Date(d.l):null,
+    vestiging:d.v||'',adres:''
+  };
+}
+
+async function loadImports(){
+  try{
+    console.log('⏳ Laden uit Supabase...');
+    const rows=await sbFetch('imports?select=*&order=import_date.asc');
+    console.log('✅ Supabase antwoord:', rows?.length, 'imports gevonden');
+    return (rows||[]).map(row=>({
+      id:row.id,
+      label:row.label,
+      date:row.import_date,
+      count:row.count,
+      data:(row.data||[]).map(expandRecord)
+    }));
+  }catch(e){
+    console.error('❌ Supabase load error:',e);
+    setTimeout(()=>{
+      toast('❌ Laden mislukt: '+e.message.slice(0,80),'#ff4e6a');
+    },500);
+    return[];
+  }
+}
+
+async function saveOneImport(imp){
+  try{
+    const slim={
+      id:imp.id,
+      label:imp.label,
+      import_date:imp.date,
+      count:imp.count,
+      data:imp.data.map(slimRecord)
+    };
+    await sbFetch('imports',{
+      method:'POST',
+      headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify(slim)
+    });
+    console.log('✅ Opgeslagen in Supabase:', imp.label);
+  }catch(e){
+    console.error('❌ Supabase save error:',e);
+    toast('❌ Opslaan mislukt: '+e.message.slice(0,100),'#ff4e6a');
+  }
+}
+
+async function deleteOneImport(id){
+  try{
+    await sbFetch('imports?id=eq.'+id,{method:'DELETE'});
+  }catch(e){
+    console.error('Supabase delete error:',e);
+  }
+}
+
+async function clearAllImports(){
+  try{
+    // Haal alle IDs op en verwijder ze één voor één
+    const rows=await sbFetch('imports?select=id');
+    if(rows&&rows.length){
+      for(const row of rows){
+        await sbFetch('imports?id=eq.'+row.id,{method:'DELETE'});
+      }
+    }
+  }catch(e){
+    console.error('Supabase clear error:',e);
+  }
+}
+
+// importHistory = [{id, label, date, data:[records]}]
+let importHistory=[];
+
+function clientKey(d){
+  // match on telefoon (cleaned) first, then naam
+  const tel=(d.telefoon||'').replace(/\D/g,'').slice(-9);
+  if(tel.length>=7)return'tel:'+tel;
+  return'naam:'+(d.naam||'').toLowerCase().trim();
+}
+
+// Merge all imports into allData, enriching each klant with visitCount across weeks
+function rebuildAllData(){
+  if(!importHistory.length){allData=[];return;}
+  const master={};
+  importHistory.forEach((imp,weekIdx)=>{
+    imp.data.forEach(d=>{
+      const k=clientKey(d);
+      if(!master[k]){
+        master[k]={...d,visitWeeks:[],visitDates:[],totalVisits:0,omzet:0,cohortWeek:imp.id,cohortLabel:imp.label,kanalen:new Set()};
+      }
+      const existing=master[k];
+      if(!existing.first||d.first&&d.first<existing.first)existing.first=d.first;
+      if(!existing.last||d.last&&d.last>existing.last)existing.last=d.last;
+      existing.orders=Math.max(existing.orders||1,d.orders||1);
+      if(d.omzet>existing.omzet)existing.omzet=d.omzet;
+      if(!existing.visitWeeks.includes(imp.id))existing.visitWeeks.push(imp.id);
+      existing.visitDates.push({weekLabel:imp.label,weekId:imp.id,weekIdx,date:d.last});
+      existing.totalVisits=existing.visitWeeks.length;
+      if(d.vestiging)existing.vestiging=d.vestiging;
+      // Track which channels this customer has used
+      existing.kanalen.add(d.kanaal||'platform');
+      // Update email if we got one now
+      if(d.email&&d.email.includes('@')&&!existing.email){existing.email=d.email;existing.kanalen.add('website');}
+    });
+  });
+  allData=Object.values(master).map(d=>{
+    const span=daysBetween(d.first,d.last);
+    const visits=d.totalVisits;
+    const effectiveOrders=Math.max(d.orders||1,visits);
+    const freq=span&&effectiveOrders>1?Math.round(span/(effectiveOrders-1)):null;
+    d.freq=freq;
+    d.seg=getSeg(effectiveOrders,span);
+    d.orders=effectiveOrders;
+    d.visitCount=visits;
+    d.avgOrderVal=d.omzet&&d.orders>0?+(d.omzet/d.orders).toFixed(2):0;
+    // Determine kanaal display
+    const kanalen=d.kanalen instanceof Set?[...d.kanalen]:d.kanalen||[d.kanaal||'platform'];
+    d.kanaal=d.email&&d.email.includes('@')?'website':'platform';
+    d.isMultiChannel=kanalen.includes('website')&&kanalen.includes('platform');
+    d.kanalen=kanalen;
+    return d;
+  });
+}
+
+function getWeekLabel(date){
+  const d=new Date(date);
+  const monday=new Date(d);monday.setDate(monday.getDate()-((monday.getDay()+6)%7));
+  const sunday=new Date(monday);sunday.setDate(monday.getDate()+6);
+  return`W${getWeekNum(monday)} (${fmtShort(monday)}–${fmtShort(sunday)})`;
+}
+function getWeekNum(d){const onejan=new Date(d.getFullYear(),0,1);return Math.ceil((((d-onejan)/864e5)+onejan.getDay()+1)/7);}
+
+const FIELDS=[
+  {key:"voornaam",  label:"Voornaam",           required:false, keywords:["voornaam","first name","firstname","voor"]},
+  {key:"achternaam",label:"Achternaam",          required:false, keywords:["naam","achternaam","last name","lastname","familienaam","surname"]},
+  {key:"adres",     label:"Adres",               required:false, keywords:["straat","adres","address","street","woonadres"]},
+  {key:"telefoon",  label:"Telefoon",            required:false, keywords:["tel","telefoon","phone","mobiel","mobile","gsm","telefoonnummer"]},
+  {key:"email",     label:"E-mail",              required:false, keywords:["e-mail","email","mail","emailadres"]},
+  {key:"orders",    label:"Aantal bestellingen", required:true,  keywords:["orders","bestelling","bestellingen","aantal orders","aankopen","purchases","transacties","visits","count","aantal"]},
+  {key:"omzet",     label:"Totaal besteed (€)",  required:false, keywords:["omzet","besteed","totaal besteed","uitgegeven","revenue","spend","total spent","total spend","bedrag","totaal bedrag","omzet klant"]},
+  {key:"laatste",   label:"Laatste bestelling",  required:true,  keywords:["laatste bestelling","laatste","last","last order","recent","laatste aankoop","datum laatste","last visit"]},
+  {key:"eerste",    label:"Eerste bestelling",   required:true,  keywords:["klant sinds","eerste bestelling","eerste","first","first order","eerste aankoop","lid sinds","since","registratie","created","datum eerste"]},
+  {key:"vestiging", label:"Vestiging",            required:false, keywords:["winkel","vestiging","branch","locatie","location","filiaal","store","franchise"]},
+];
+const DEMO_HEADERS=['voornaam','achternaam','adres','telefoon','email','aantal_bestellingen','eerste_bestelling','laatste_bestelling','vestiging'];
+const DEMO_ROWS=[
+  ['Jan','de Vries','Hoofdstr 1','0612345678','jan@mail.nl','12','2023-06-01','2024-11-10','Amsterdam-Noord'],
+  ['Fatima','El Ouali','Kerkstr 5','0698765432','','3','2024-09-01','2024-11-05','Rotterdam-Centrum'],
+  ['Pieter','Smit','Laan 22','0623456789','p@mail.nl','1','2024-10-15','2024-10-15','Utrecht'],
+  ['Sofia','Janssen','Dorpstr 8','0634567890','','8','2023-12-01','2024-11-08','Haarlem'],
+  ['Mohammed','Aziz','Parkweg 3','0645678901','m@mail.nl','52','2023-01-10','2024-11-10','Amsterdam-Noord'],
+  ['Lianne','Bos','Nieuwstr 14','0656789012','','2','2024-10-01','2024-11-01','Rotterdam-Centrum'],
+  ['Kevin','Mulder','Oudeweg 7','0667890123','k@test.nl','4','2024-07-01','2024-11-09','Utrecht'],
+  ['Emma','Visser','Tuinlaan 99','0678901234','','26','2023-03-15','2024-11-07','Haarlem'],
+  ['Ravi','Patel','Marktpl 2','0689012345','r@mail.nl','1','2024-10-20','2024-10-20','Amsterdam-Zuid'],
+  ['Nathalie','Dekker','Keizersgr 55','0690123456','','18','2023-08-01','2024-11-06','Amsterdam-Zuid'],
+  ['Thomas','Berg','Stationsstr 3','0611223344','t@test.nl','6','2024-05-01','2024-11-03','Rotterdam-Centrum'],
+  ['Yildiz','Kaya','Vondstr 12','0622334455','','1','2024-10-25','2024-10-25','Amsterdam-Noord'],
+  ['Lars','Hendriks','Bosdreef 8','0633445566','l@mail.nl','42','2023-02-01','2024-11-10','Utrecht'],
+  ['Amira','Osman','Bloemenweg 4','0644556677','','5','2024-06-01','2024-11-04','Haarlem'],
+  ['Daan','Vermeer','Rijksweg 19','0655667788','d@test.nl','1','2024-10-30','2024-10-30','Rotterdam-Centrum'],
+  ['Ingrid','Wolff','Prinsengr 88','0666778899','','9','2024-01-01','2024-11-05','Amsterdam-Zuid'],
+  ['Sven','Oosterhout','Klovenstr 33','0677889900','s@mail.nl','3','2024-08-15','2024-11-01','Utrecht'],
+  ['Mariam','Khalil','Koninginneweg 7','0688990011','','35','2023-04-01','2024-11-09','Amsterdam-Noord'],
+  ['Bram','Kuiper','Waterstr 44','0699001122','b@test.nl','2','2024-09-10','2024-10-25','Rotterdam-Centrum'],
+  ['Chloe','Renard','Museumpl 6','0600112233','c@mail.nl','15','2023-11-01','2024-11-08','Amsterdam-Zuid'],
+];
+
+let currentUser=null,allData=[],filtered=[],segCI=null;
+let sortCol='last',sortDir=-1,currentPage=1;
+const pageSize=15;
+let kSearch='',kVest='',kSeg='';
+let rawHeaders=[],rawRows=[],mapping={};
+let vestSortMode='pct';
+let ddChartInst=null;
+let ddPeriod='week';
+// Data wordt geladen bij inloggen via doLogin() → loadImports()
+
+// ══ HELPERS ══
+function parseDate(s){
+  if(!s)return null;
+  const str=s.toString().trim();
+  // dd/mm/yy or dd/mm/yyyy (jouw formaat)
+  const dmy=/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/.exec(str);
+  if(dmy){
+    let[,d,m,y]=dmy;
+    if(y.length===2)y=parseInt(y)<50?'20'+y:'19'+y;
+    const dt=new Date(parseInt(y),parseInt(m)-1,parseInt(d));
+    return isNaN(dt)?null:dt;
+  }
+  // yyyy-mm-dd (ISO formaat)
+  const iso=/^(\d{4})-(\d{2})-(\d{2})/.exec(str);
+  if(iso){
+    const dt=new Date(parseInt(iso[1]),parseInt(iso[2])-1,parseInt(iso[3]));
+    return isNaN(dt)?null:dt;
+  }
+  // Fallback
+  const dt=new Date(str);
+  return isNaN(dt)?null:dt;
+}
+function daysBetween(a,b){if(!a||!b)return null;return Math.round(Math.abs(b-a)/864e5);}
+function getSeg(o,s){if(o<=1)return'new';if(!s)return'new';const f=s/Math.max(o-1,1);return f<=9?'weekly':f<=35?'monthly':'sporadic';}
+function segLabel(s){return{weekly:'Wekelijks',monthly:'Maandelijks',sporadic:'Incidenteel',new:'Eenmalig'}[s]||s;}
+function segTag(s){const m={weekly:'tag-green',monthly:'tag-blue',sporadic:'tag-amber',new:'tag-red'};return`<span class="tag ${m[s]||''}">${segLabel(s)}</span>`;}
+function fmt(d){return d?d.toLocaleDateString('nl-NL'):'—';}
+function fmtShort(d){return d?d.toLocaleDateString('nl-NL',{day:'numeric',month:'short'}):'—';}
+function toast(msg,color='#00c98d'){const t=document.getElementById('toast'),dot=document.getElementById('toastDot');document.getElementById('toastMsg').textContent=msg;dot.style.background=color;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+function splitName(full){const p=(full||'').trim().split(/\s+/);return p.length===1?{voornaam:p[0],achternaam:''}:{voornaam:p[0],achternaam:p.slice(1).join(' ')};}
+function processRecord(rec){
+  let vn=rec.voornaam||'',an=rec.achternaam||'';
+  if(!vn&&!an&&rec.naam){const s=splitName(rec.naam);vn=s.voornaam;an=s.achternaam;}
+  const orders=parseInt(rec.orders)||1;
+  const omzet=parseFloat((rec.omzet||'0').toString().replace(',','.'))||0;
+  const first=parseDate(rec.eerste);
+  const last=parseDate(rec.laatste)||parseDate(rec.eerste);
+  const span=daysBetween(first,last);
+  const freq=span&&orders>1?Math.round(span/(orders-1)):null;
+  const seg=getSeg(orders,span);
+  const email=(rec.email||'').trim();
+  // Kanaal: eigen website als e-mailadres aanwezig, anders platform (Thuisbezorgd etc.)
+  const kanaal=email&&email.includes('@')?'website':'platform';
+  return{voornaam:vn,achternaam:an,naam:`${vn} ${an}`.trim(),adres:rec.adres||'',telefoon:rec.telefoon||'',email,orders,omzet,first,last,span,freq,seg,vestiging:rec.vestiging||'',kanaal};
+}
+
+// ══ AUTH ══
+function fillLogin(u,p){document.getElementById('lUser').value=u;document.getElementById('lPass').value=p||'';}
+document.getElementById('lPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+function resetUiToLoggedOut(){
+  currentUser=null;allData=[];filtered=[];
+  document.getElementById('appScreen').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('lPass').value='';
+  document.getElementById('ovDash').style.display='none';
+  document.getElementById('ovEmpty').style.display='block';
+  if(segCI){segCI.destroy();segCI=null;}
+}
+async function enterAppAsAdmin(email){
+  clearLoginError();
+  currentUser={role:'admin',vestiging:null,label:'Admin',initials:'AD',email};
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appScreen').style.display='block';
+  const av=document.getElementById('sideAvatar');
+  av.textContent=currentUser.initials;
+  av.className='avatar avatar-admin';
+  document.getElementById('sideUser').textContent='Admin';
+  document.getElementById('sideRole').textContent='Alle vestigingen';
+  document.getElementById('navVest').style.display='flex';
+
+  toast('⏳ Data laden uit database...','#6c3fff');
+  importHistory=await loadImports();
+  if(importHistory.length){
+    rebuildAllData();
+    if(allData.length){
+      document.getElementById('ovDash').style.display='block';
+      document.getElementById('ovEmpty').style.display='none';
+      buildOvFilters();applyOvFilters();
+    }
+    toast('👋 Welkom terug! '+importHistory.length+' import(en) geladen.');
+  } else {
+    toast('Welkom terug! 👋');
+  }
+}
+
+let authUiBusy=false;
+async function applySessionToUi(session){
+  if(authUiBusy) return;
+  authUiBusy=true;
+  try{
+    const email=(session?.user?.email||'').toLowerCase().trim();
+    if(!session || !email){
+      resetUiToLoggedOut();
+      return;
+    }
+    if(!ADMIN_EMAIL_ALLOWLIST.includes(email)){
+      await getSb().auth.signOut();
+      resetUiToLoggedOut();
+      setLoginError('❌ Geen toegang. Dit account is geen admin.');
+      return;
+    }
+    await enterAppAsAdmin(email);
+  } finally {
+    authUiBusy=false;
+  }
+}
+
+async function doLogin(){
+  try{
+    clearLoginError();
+    const raw=document.getElementById('lUser').value.trim();
+    const pass=document.getElementById('lPass').value;
+    if(!raw || !pass){
+      setLoginError('❌ Vul e-mail en wachtwoord in.');
+      return;
+    }
+    let email=raw.toLowerCase();
+    if(!email.includes('@') && email==='admin') email='admin@gmail.com';
+    const {data, error}=await getSb().auth.signInWithPassword({email, password: pass});
+    if(error) throw error;
+    await applySessionToUi(data.session);
+  }catch(e){
+    console.error('Login error',e);
+    setLoginError('❌ Inloggen mislukt: controleer je gegevens.');
+  }
+}
+
+async function doLogout(){
+  try{
+    await getSb().auth.signOut();
+  } finally {
+    resetUiToLoggedOut();
+  }
+}
+
+// Init: keep UI in sync with Supabase session
+(async ()=>{
+  try{
+    const {data}=await getSb().auth.getSession();
+    await applySessionToUi(data.session);
+    getSb().auth.onAuthStateChange(async (_event, session)=>{
+      await applySessionToUi(session);
+    });
+  }catch(e){
+    console.error('Auth init error',e);
+    resetUiToLoggedOut();
+    setLoginError('❌ Auth initialisatie mislukt.');
+  }
+})();
+
+// ══ NAVIGATION ══
+function showPage(p){
+  document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  const key=p.charAt(0).toUpperCase()+p.slice(1);
+  const pg=document.getElementById('page'+key);
+  if(pg)pg.classList.add('active');
+  const map={overview:0,klanten:1,vestigingen:2,cohort:3,import:4,geschiedenis:5,ai:6};
+  document.querySelectorAll('.nav-item')[map[p]]?.classList.add('active');
+  if(p==='klanten')renderKlantenPage();
+  if(p==='vestigingen')renderVestPage();
+  if(p==='cohort')renderCohortPage();
+  if(p==='geschiedenis')renderGeschiedenisPage();
+  if(p==='ai')initAiPage();
+}
+
+// ══ CSV ══
+function parseCSVText(text){
+  const fl=text.split(/\r?\n/)[0];
+  const sep=fl.includes(';')?';':fl.includes('\t')?'\t':',';
+  const lines=text.trim().split(/\r?\n/).filter(l=>l.trim());
+  function pl(line){const c=[];let cur='',q=false;for(const ch of line){if(ch==='"'){q=!q}else if(ch===sep&&!q){c.push(cur.trim());cur=''}else cur+=ch;}c.push(cur.trim());return c.map(x=>x.replace(/^"|"$/g,'').trim());}
+  rawHeaders=pl(lines[0]);
+  rawRows=lines.slice(1).map(l=>pl(l)).filter(r=>r.some(c=>c));
+}
+function onFileChange(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{parseCSVText(ev.target.result);autoMap();renderWiz2();wizStep(2);};r.readAsText(f,'UTF-8');}
+const dz=document.getElementById('dropZone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{parseCSVText(ev.target.result);autoMap();renderWiz2();wizStep(2);};r.readAsText(f,'UTF-8');});
+function loadDemo(){rawHeaders=DEMO_HEADERS;rawRows=DEMO_ROWS;autoMap();renderWiz2();wizStep(2);}
+
+// ══ AUTO MAP ══
+function autoMap(){
+  mapping={};const used=new Set();
+  // Kolommen die altijd worden overgeslagen
+  const SKIP=['cust'];
+  // Exact match map voor jouw kolomnamen
+  const EXACT={
+    'voornaam':'voornaam','naam':'achternaam','straat':'adres',
+    'tel':'telefoon','e-mail':'email','orders':'orders',
+    'omzet':'omzet','totaal besteed':'omzet','besteed':'omzet','uitgegeven':'omzet',
+    'laatste bestelling':'laatste','klant sinds':'eerste','winkel':'vestiging'
+  };
+  rawHeaders.forEach((hdr,idx)=>{
+    const h=hdr.toLowerCase().trim();
+    // 0. Altijd overslaan
+    if(SKIP.includes(h)){mapping[idx]={field:'__skip__',confidence:'none'};return;}
+    // 1. Exact match op jouw kolomnamen (hoogste prioriteit)
+    if(EXACT[h]&&!used.has(EXACT[h])){
+      mapping[idx]={field:EXACT[h],confidence:'high'};
+      used.add(EXACT[h]);return;
+    }
+    // 2. Fuzzy match via keywords
+    let best=null,bestScore=0;
+    FIELDS.forEach(f=>{
+      if(used.has(f.key))return;
+      let score=0;
+      if(f.keywords.includes(h))score=100;
+      else if(f.keywords.some(k=>h.includes(k)||k.includes(h)))score=70;
+      else if(f.keywords.some(k=>h.split(/[\s_\-\/]+/).some(w=>k.includes(w)&&w.length>2)))score=40;
+      const sample=rawRows.slice(0,5).map(r=>r[idx]||'').join(' ');
+      if(f.key==='email'&&/[@]/.test(sample))score=Math.max(score,90);
+      if(f.key==='telefoon'&&/^[\d\s\+\-\(\)]{7,}$/.test(rawRows[0]?.[idx]||''))score=Math.max(score,85);
+      if(f.key==='orders'&&/^\d+$/.test((rawRows[0]?.[idx]||'').trim()))score=Math.max(score,75);
+      if((f.key==='eerste'||f.key==='laatste')&&/\d{2,4}[-\/]\d{1,2}[-\/]\d{1,4}/.test(sample))score=Math.max(score,80);
+      if(score>bestScore){bestScore=score;best=f;}
+    });
+    if(best&&bestScore>=40){mapping[idx]={field:best.key,confidence:bestScore>=90?'high':bestScore>=60?'med':'low'};used.add(best.key);}
+    else mapping[idx]={field:'__skip__',confidence:'none'};
+  });
+}
+
+// ══ WIZARD ══
+function renderWiz2(){
+  const pt=document.getElementById('prevTbl');
+  pt.innerHTML=`<thead><tr>${rawHeaders.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rawRows.slice(0,3).map(r=>`<tr>${rawHeaders.map((_,i)=>`<td title="${r[i]||''}">${r[i]||''}</td>`).join('')}</tr>`).join('')}</tbody>`;
+  document.getElementById('mapGrid').innerHTML=rawHeaders.map((hdr,idx)=>{
+    const m=mapping[idx];
+    const sample=rawRows.slice(0,2).map(r=>r[idx]||'').filter(Boolean).join(', ');
+    const rowClass=m.field==='__skip__'?'':m.confidence==='high'?'ok':'warn';
+    const icon=m.field==='__skip__'?'⬜':m.confidence==='high'?'✅':'⚠️';
+    const opts=FIELDS.map(f=>`<option value="${f.key}" ${m.field===f.key?'selected':''}>${f.label}</option>`).join('');
+    return`<div class="map-row ${rowClass}" id="mr-${idx}"><div><div class="map-source">${hdr}</div><div class="map-sample">${sample}</div></div><div class="map-arrow">→</div><div><select class="map-select" onchange="updateMap(${idx},this.value)"><option value="__skip__">— Niet gebruiken —</option>${opts}</select></div><div class="map-icon">${icon}</div></div>`;
+  }).join('');
+}
+function updateMap(idx,val){
+  if(val!=='__skip__'){Object.keys(mapping).forEach(i=>{if(parseInt(i)!==idx&&mapping[i].field===val){mapping[i]={field:'__skip__',confidence:'none'};const r=document.getElementById('mr-'+i);if(r){r.className='map-row';r.querySelector('select').value='__skip__';r.querySelector('.map-icon').textContent='⬜';}}});}
+  mapping[idx]={field:val,confidence:'high'};
+  const row=document.getElementById('mr-'+idx);
+  if(row){row.className='map-row '+(val==='__skip__'?'':'ok');row.querySelector('.map-icon').textContent=val==='__skip__'?'⬜':'✅';}
+}
+function wizValidate(){
+  const required=FIELDS.filter(f=>f.required).map(f=>f.key);
+  const mapped=Object.values(mapping).map(m=>m.field).filter(f=>f!=='__skip__');
+  const missing=required.filter(r=>!mapped.includes(r));
+  if(missing.length>0){alert('⚠️ Verplichte velden niet gekoppeld:\n\n'+missing.map(k=>FIELDS.find(f=>f.key===k)?.label).join(', '));return;}
+  renderWiz3();wizStep(3);
+}
+function renderWiz3(){
+  const mapped=Object.entries(mapping).filter(([,m])=>m.field!=='__skip__');
+  const unmapped=Object.entries(mapping).filter(([,m])=>m.field==='__skip__');
+  document.getElementById('sumGrid').innerHTML=`<div class="sum-card"><div class="sum-val">${rawRows.length}</div><div class="sum-lbl">Klanten</div></div><div class="sum-card"><div class="sum-val">${mapped.length}</div><div class="sum-lbl">Gekoppeld</div></div><div class="sum-card"><div class="sum-val">${unmapped.length}</div><div class="sum-lbl">Overgeslagen</div></div><div class="sum-card"><div class="sum-val" style="color:var(--green)">✓</div><div class="sum-lbl">Klaar</div></div>`;
+  document.getElementById('mappedList').innerHTML=mapped.map(([idx,m])=>{const fl=FIELDS.find(f=>f.key===m.field)?.label||m.field;const samp=rawRows[0]?.[idx]||'';return`<div class="mapped-item"><span>✅</span><span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text2);flex:1">${rawHeaders[idx]}</span><span style="color:var(--text3)">→</span><span style="font-weight:600">${fl}</span><span style="font-size:11px;color:var(--text3);margin-left:auto;font-family:'DM Mono',monospace">${samp}</span></div>`;}).join('')+unmapped.map(([idx])=>`<div class="mapped-item" style="opacity:.4"><span>⬜</span><span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text2);flex:1">${rawHeaders[idx]}</span><span style="color:var(--text3)">→</span><span style="color:var(--text3)">Niet gebruikt</span></div>`).join('');
+  // Set date picker to today
+  const today=new Date();
+  const todayStr=today.toISOString().slice(0,10);
+  const picker=document.getElementById('importDatePicker');
+  if(picker){
+    picker.value=todayStr;
+    updateDatePreview(today);
+    picker.onchange=()=>{
+      const d=new Date(picker.value);
+      updateDatePreview(isNaN(d)?today:d);
+    };
+  }
+}
+function updateDatePreview(d){
+  const el=document.getElementById('importDatePreview');
+  if(!el)return;
+  const label=getWeekLabel(d);
+  el.innerHTML=`<span style="font-size:13px;font-weight:600;color:var(--accent)">→ ${label}</span>`;
+}
+function wizStep(n){document.querySelectorAll('.wizard-step').forEach(s=>s.classList.remove('active'));document.getElementById('wiz'+n).classList.add('active');}
+async function doImport(){
+  const idxMap={};
+  Object.entries(mapping).forEach(([idx,m])=>{if(m.field!=='__skip__')idxMap[m.field]=parseInt(idx);});
+  const get=(row,key)=>idxMap[key]!==undefined?(row[idxMap[key]]||''):'';
+  const newRecords=rawRows.map(row=>processRecord({voornaam:get(row,'voornaam'),achternaam:get(row,'achternaam'),naam:get(row,'naam'),adres:get(row,'adres'),telefoon:get(row,'telefoon'),email:get(row,'email'),orders:get(row,'orders'),omzet:get(row,'omzet'),eerste:get(row,'eerste'),laatste:get(row,'laatste'),vestiging:get(row,'vestiging')})).filter(r=>r.naam||r.voornaam);
+
+  // Use chosen date from picker, fallback to today
+  const picker=document.getElementById('importDatePicker');
+  const chosenDate=picker&&picker.value?new Date(picker.value):new Date();
+  const now=isNaN(chosenDate)?new Date():chosenDate;
+  const weekLabel=getWeekLabel(now);
+  const newId='imp_'+Date.now();
+
+  const newImp={id:newId,label:weekLabel,date:now.toISOString(),count:newRecords.length,data:newRecords};
+  importHistory.push(newImp);
+
+  toast('⏳ Opslaan in database...','#6c3fff');
+  await saveOneImport(newImp);
+
+  rebuildAllData();
+  document.getElementById('ovDash').style.display='block';
+  document.getElementById('ovEmpty').style.display='none';
+  buildOvFilters();applyOvFilters();
+  wizStep(1);showPage('overview');
+
+  const isReturn=newRecords.filter(d=>{const k=clientKey(d);return importHistory.slice(0,-1).some(imp=>imp.data.some(r=>clientKey(r)===k));}).length;
+  toast(`🎉 ${newRecords.length} klanten geïmporteerd · ${isReturn} terugkerend!`);
+}
+
+// Oude deserializeImport niet meer nodig (loadImports gebruikt expandRecord)
+
+// ══ VIEW ══
+function getView(){return currentUser.role==='admin'?allData:allData.filter(d=>d.vestiging===currentUser.vestiging);}
+
+// ══ OVERVIEW ══
+function buildOvFilters(){
+  const fb=document.getElementById('filterBar');
+  const vests=[...new Set(allData.map(d=>d.vestiging).filter(Boolean))].sort();
+  const vstOpt=currentUser.role==='admin'?`<select class="filter-select" id="ovVest" onchange="applyOvFilters()"><option value="">Alle vestigingen</option>${vests.map(v=>`<option>${v}</option>`).join('')}</select>`:'';
+
+  // Calculate default date range from data
+  const dates=allData.map(d=>d.last).filter(Boolean).sort((a,b)=>a-b);
+  const minDate=dates.length?dates[0].toISOString().slice(0,10):'';
+  const maxDate=dates.length?dates[dates.length-1].toISOString().slice(0,10):'';
+
+  fb.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%">
+      <div class="search-wrap" style="max-width:240px"><div class="search-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div><input class="search-input" id="ovSearch" placeholder="Zoek klant..." oninput="applyOvFilters()"></div>
+      ${vstOpt}
+      <select class="filter-select" id="ovSeg" onchange="applyOvFilters()"><option value="">Alle segmenten</option><option value="weekly">🟢 Wekelijks</option><option value="monthly">🔵 Maandelijks</option><option value="sporadic">🟡 Incidenteel</option><option value="new">🔴 Eenmalig</option></select>
+      <select class="filter-select" id="ovKanaal" onchange="applyOvFilters()"><option value="">Alle kanalen</option><option value="website">🌐 Eigen website</option><option value="platform">📦 Thuisbezorgd</option><option value="multi">🔀 Beide kanalen</option></select>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+      <span style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;white-space:nowrap">📅 Periode</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <input type="date" id="ovFrom" value="${minDate}" style="padding:7px 10px;border:1.5px solid var(--border2);border-radius:var(--radius);font-size:12px;font-family:'Plus Jakarta Sans',sans-serif;color:var(--text);background:#fff;outline:none;cursor:pointer" oninput="applyOvFilters()">
+        <span style="font-size:12px;color:var(--text3)">t/m</span>
+        <input type="date" id="ovTo" value="${maxDate}" style="padding:7px 10px;border:1.5px solid var(--border2);border-radius:var(--radius);font-size:12px;font-family:'Plus Jakarta Sans',sans-serif;color:var(--text);background:#fff;outline:none;cursor:pointer" oninput="applyOvFilters()">
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <button class="sort-btn" onclick="setOvDatePreset(7)">7 dgn</button>
+        <button class="sort-btn" onclick="setOvDatePreset(30)">30 dgn</button>
+        <button class="sort-btn" onclick="setOvDatePreset(90)">90 dgn</button>
+        <button class="sort-btn" onclick="setOvDatePreset(180)">6 mnd</button>
+        <button class="sort-btn" onclick="setOvDatePreset(365)">1 jaar</button>
+        <button class="sort-btn" onclick="setOvDatePreset(0)">Alles</button>
+      </div>
+      <span class="results-count" id="ovCount"></span>
+    </div>`;
+  document.getElementById('ovSub').textContent=currentUser.role==='fn'?'— '+currentUser.vestiging:'';
+}
+
+function setOvDatePreset(days){
+  const toEl=document.getElementById('ovTo');
+  const fromEl=document.getElementById('ovFrom');
+  if(!toEl||!fromEl)return;
+  const dates=allData.map(d=>d.last).filter(Boolean).sort((a,b)=>a-b);
+  const maxDate=dates.length?dates[dates.length-1]:new Date();
+  const minDate=dates.length?dates[0]:new Date();
+  toEl.value=maxDate.toISOString().slice(0,10);
+  if(days===0){
+    fromEl.value=minDate.toISOString().slice(0,10);
+  } else {
+    const from=new Date(maxDate);
+    from.setDate(from.getDate()-days);
+    fromEl.value=from.toISOString().slice(0,10);
+  }
+  applyOvFilters();
+}
+
+function applyOvFilters(){
+  let data=getView();
+  const s=(document.getElementById('ovSearch')?.value||'').toLowerCase();
+  const v=document.getElementById('ovVest')?.value||'';
+  const sg=document.getElementById('ovSeg')?.value||'';
+  const kn=document.getElementById('ovKanaal')?.value||'';
+  const fromVal=document.getElementById('ovFrom')?.value;
+  const toVal=document.getElementById('ovTo')?.value;
+  const fromDate=fromVal?new Date(fromVal):null;
+  const toDate=toVal?new Date(toVal+'T23:59:59'):null;
+  if(s)data=data.filter(d=>(d.naam||'').toLowerCase().includes(s)||d.telefoon.includes(s));
+  if(v)data=data.filter(d=>d.vestiging===v);
+  if(sg)data=data.filter(d=>d.seg===sg);
+  if(kn==='multi')data=data.filter(d=>d.isMultiChannel);
+  else if(kn)data=data.filter(d=>d.kanaal===kn);
+  // Date filter: filter on last order date
+  if(fromDate)data=data.filter(d=>d.last&&d.last>=fromDate);
+  if(toDate)data=data.filter(d=>d.last&&d.last<=toDate);
+  filtered=data;
+  const oc=document.getElementById('ovCount');if(oc)oc.textContent=data.length+' klanten';
+  renderMetrics(data);renderFreqBars(data);renderSegChart(data);renderChannelComparison(data);renderRecentTable(data.slice(0,8));
+}
+function renderMetrics(data){
+  const tot=data.length,ret=data.filter(d=>d.orders>1).length;
+  const pct=tot?Math.round(ret/tot*100):0;
+  const wk=data.filter(d=>d.seg==='weekly').length;
+  // Nieuwe klanten is alleen zinvol bij meerdere imports — bij 1 import zijn alle klanten "nieuw"
+  const nieuw=importHistory.length>1?data.filter(d=>(d.visitCount||1)===1).length:0;
+  const nieuwPct=tot&&importHistory.length>1?Math.round(nieuw/tot*100):0;
+  const prevLabel=importHistory.length>1?'t.o.v. vorige week':'—';
+  // Omzet metrics
+  const hasOmzet=data.some(d=>d.omzet>0);
+  const totalOmzet=data.reduce((s,d)=>s+(d.omzet||0),0);
+  const avgLTV=tot&&hasOmzet?+(totalOmzet/tot).toFixed(2):0;
+  const avgRetLTV=ret&&hasOmzet?+(data.filter(d=>d.orders>1).reduce((s,d)=>s+(d.omzet||0),0)/ret).toFixed(2):0;
+  // Gem interval
+  const withFreq=data.filter(d=>d.freq&&d.freq>0);
+  const avgInterval=withFreq.length?Math.round(withFreq.reduce((s,d)=>s+d.freq,0)/withFreq.length):null;
+
+  const fmtEur=v=>v>=1000?'€'+(v/1000).toFixed(1)+'k':'€'+v.toFixed(0);
+
+  const omzetCards=hasOmzet?`
+    <div class="metric-card" style="border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1.35rem;position:relative;overflow:hidden"><div class="mc-stripe" style="background:linear-gradient(90deg,#00c98d,#6c3fff);position:absolute;top:0;left:0;right:0;height:3px"></div><div class="metric-label">Gem. klantwaarde</div><div class="metric-value" style="font-size:22px">${fmtEur(avgLTV)}</div><div class="metric-sub">per klant (LTV)</div></div>
+    <div class="metric-card" style="border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1.35rem;position:relative;overflow:hidden"><div class="mc-stripe" style="background:linear-gradient(90deg,#6c3fff,#ff4fc8);position:absolute;top:0;left:0;right:0;height:3px"></div><div class="metric-label">LTV terugkerend</div><div class="metric-value" style="font-size:22px">${fmtEur(avgRetLTV)}</div><div class="metric-sub">vs nieuw: ${fmtEur(tot&&hasOmzet?+(data.filter(d=>d.visitCount===1).reduce((s,d)=>s+(d.omzet||0),0)/Math.max(nieuw,1)).toFixed(2):0)}</div></div>`:'';
+
+  document.getElementById('metricsRow').innerHTML=`
+    <div class="metric-card mc-blue"><div class="mc-stripe"></div><div class="metric-label">Totaal klanten</div><div class="metric-value">${tot}</div><div class="metric-sub">unieke klanten</div></div>
+    <div class="metric-card mc-green"><div class="mc-stripe"></div><div class="metric-label">Terugkerend</div><div class="metric-value">${pct}%</div><span class="metric-trend trend-${pct>=50?'up':'down'}">${pct>=50?'↑':'↓'} ${ret} klanten</span></div>
+    <div class="metric-card" style="border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1.35rem;position:relative;overflow:hidden"><div class="mc-stripe" style="background:linear-gradient(90deg,#ff4fc8,#ff9f2e);position:absolute;top:0;left:0;right:0;height:3px"></div><div class="metric-label">Nieuwe klanten</div><div class="metric-value" style="color:var(--pink)">${nieuw}</div><span class="metric-trend" style="background:rgba(255,79,200,.1);color:var(--pink)">${nieuwPct}% ${prevLabel}</span></div>
+    <div class="metric-card mc-amber"><div class="mc-stripe"></div><div class="metric-label">Wekelijks terugkerend</div><div class="metric-value">${wk}</div><div class="metric-sub">${tot?Math.round(wk/tot*100):0}% van totaal</div></div>
+    <div class="metric-card mc-purple"><div class="mc-stripe"></div><div class="metric-label">Gem. interval</div><div class="metric-value">${avgInterval?avgInterval+'d':'—'}</div><div class="metric-sub">tussen bezoeken</div></div>
+    ${omzetCards}`;
+  const cols=hasOmzet?7:5;
+  document.getElementById('metricsRow').style.gridTemplateColumns=`repeat(${cols},1fr)`;
+}
+function renderFreqBars(data){
+  const tot=data.length;
+  const segs=[['weekly','Wekelijks','linear-gradient(90deg,#00c98d,#00bcd4)'],['monthly','Maandelijks','linear-gradient(90deg,#6c3fff,#ff4fc8)'],['sporadic','Incidenteel','linear-gradient(90deg,#ff9f2e,#ffd700)'],['new','Eenmalig','linear-gradient(90deg,#ff4e6a,#ff4fc8)']];
+  document.getElementById('freqBars').innerHTML=segs.map(([s,l,c])=>{const n=data.filter(d=>d.seg===s).length,p=tot?Math.round(n/tot*100):0;return`<div class="bar-row"><span class="bar-label">${l}</span><div class="bar-bg"><div class="bar-fill" style="width:${p}%;background:${c}">${p>10?p+'%':''}</div></div><span class="bar-pct">${p}%</span></div>`;}).join('');
+}
+function renderSegChart(data){
+  const segs=['weekly','monthly','sporadic','new'];
+  const counts=segs.map(s=>data.filter(d=>d.seg===s).length);
+  if(segCI)segCI.destroy();
+  segCI=new Chart(document.getElementById('segChart'),{type:'doughnut',data:{labels:segs.map(segLabel),datasets:[{data:counts,backgroundColor:['#00c98d','#6c3fff','#ff9f2e','#ff4e6a'],borderWidth:0,hoverOffset:5}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'bottom',labels:{color:'#6b62a0',font:{family:'Plus Jakarta Sans',size:11,weight:'600'},boxWidth:9,padding:12}}}}});
+}
+function renderRecentTable(data){
+  document.getElementById('recentBody').innerHTML=data.map(d=>`<tr><td><div class="tbl-name">${d.voornaam||'—'}</div></td><td>${d.achternaam||'—'}</td><td>${d.vestiging||'—'}</td><td class="tbl-num">${d.orders}</td><td>${fmt(d.last)}</td><td>${segTag(d.seg)}</td></tr>`).join('');
+}
+
+// ══ KLANTEN PAGE ══
+let kKanaal='';
+function renderKlantenPage(){
+  if(!allData.length&&importHistory.length)rebuildAllData();
+  if(!allData.length)return;
+  const vests=[...new Set(allData.map(d=>d.vestiging).filter(Boolean))].sort();
+  const fb=document.getElementById('klantenFilters');
+  const vstOpt=currentUser.role==='admin'?`<select class="filter-select" id="kVest"><option value="">Alle vestigingen</option>${vests.map(v=>`<option ${v===kVest?'selected':''}>${v}</option>`).join('')}</select>`:'';
+  fb.innerHTML=`<div class="search-wrap"><div class="search-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div><input class="search-input" id="kSearch" placeholder="Zoek naam, telefoon of e-mail..." value="${kSearch}" oninput="onKSearch(event)"></div>${vstOpt}<select class="filter-select" id="kSeg" onchange="onKSeg(event)"><option value="">Alle segmenten</option><option value="weekly" ${kSeg==='weekly'?'selected':''}>🟢 Wekelijks</option><option value="monthly" ${kSeg==='monthly'?'selected':''}>🔵 Maandelijks</option><option value="sporadic" ${kSeg==='sporadic'?'selected':''}>🟡 Incidenteel</option><option value="new" ${kSeg==='new'?'selected':''}>🔴 Eenmalig</option></select><select class="filter-select" id="kKanaal" onchange="onKKanaal(event)"><option value="">Alle kanalen</option><option value="website" ${kKanaal==='website'?'selected':''}>🌐 Eigen website</option><option value="platform" ${kKanaal==='platform'?'selected':''}>📦 Thuisbezorgd</option><option value="multi" ${kKanaal==='multi'?'selected':''}>🔀 Beide kanalen</option></select><span class="results-count" id="kCount"></span>`;
+  if(document.getElementById('kVest'))document.getElementById('kVest').addEventListener('change',e=>{kVest=e.target.value;currentPage=1;applyKlantenFilters();});
+  applyKlantenFilters();
+}
+function onKSearch(e){kSearch=e.target.value;currentPage=1;applyKlantenFilters();}
+function onKSeg(e){kSeg=e.target.value;currentPage=1;applyKlantenFilters();}
+function onKKanaal(e){kKanaal=e.target.value;currentPage=1;applyKlantenFilters();}
+
+function kanaalBadge(d){
+  if(d.isMultiChannel)return`<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700;background:linear-gradient(135deg,rgba(108,63,255,.12),rgba(0,201,141,.12));color:var(--accent)">🔀 Beide</span>`;
+  if(d.kanaal==='website')return`<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(0,201,141,.1);color:var(--green)">🌐 Website</span>`;
+  return`<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(255,159,46,.1);color:var(--amber)">📦 Platform</span>`;
+}
+
+function applyKlantenFilters(){
+  let data=getView();
+  if(kSearch)data=data.filter(d=>(d.naam||'').toLowerCase().includes(kSearch.toLowerCase())||d.telefoon.includes(kSearch)||d.email.toLowerCase().includes(kSearch.toLowerCase())||(d.achternaam||'').toLowerCase().includes(kSearch.toLowerCase()));
+  if(kVest&&currentUser.role==='admin')data=data.filter(d=>d.vestiging===kVest);
+  if(kSeg)data=data.filter(d=>d.seg===kSeg);
+  if(kKanaal==='multi')data=data.filter(d=>d.isMultiChannel);
+  else if(kKanaal)data=data.filter(d=>d.kanaal===kKanaal);
+  data=[...data].sort((a,b)=>{let va=a[sortCol],vb=b[sortCol];if(['voornaam','achternaam','vestiging','seg','kanaal'].includes(sortCol)){va=(va||'').toLowerCase();vb=(vb||'').toLowerCase();}if(va===null||va===undefined)return 1;if(vb===null||vb===undefined)return-1;return va<vb?-sortDir:va>vb?sortDir:0;});
+  filtered=data;
+  const tot=data.length;
+  document.getElementById('kCount').textContent=tot+' klanten';
+  document.getElementById('klantCount').textContent='('+tot+')';
+  const pages=Math.max(1,Math.ceil(tot/pageSize));
+  if(currentPage>pages)currentPage=1;
+  const sl=data.slice((currentPage-1)*pageSize,currentPage*pageSize);
+  document.getElementById('klantenBody').innerHTML=sl.map(d=>{
+    const vc=d.visitCount||1;
+    const vcColor=vc>=4?'var(--green)':vc>=2?'var(--accent)':'var(--text3)';
+    const vcLabel=vc===1?'1e bezoek':vc+'e bezoek';
+    return`<tr><td><div class="tbl-name">${d.voornaam||'—'}</div><div class="tbl-sub">${d.telefoon}</div></td><td>${d.achternaam||'—'}</td><td>${d.vestiging||'—'}</td><td>${kanaalBadge(d)}</td><td><span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:${vcColor}">${vc}x</span><span style="font-size:10px;color:var(--text3);margin-left:5px">${vcLabel}</span></td><td class="tbl-num">${d.orders}</td><td class="tbl-num">${d.omzet>0?'€'+d.omzet.toFixed(2):'—'}</td><td>${fmt(d.first)}</td><td>${fmt(d.last)}</td><td>${d.freq?'elke '+d.freq+'d':'—'}</td><td>${segTag(d.seg)}</td></tr>`;
+  }).join('');
+  ['voornaam','achternaam','vestiging','kanaal','visitCount','orders','omzet','first','last','freq','seg'].forEach(c=>{const th=document.getElementById('th-'+c);if(th){th.classList.toggle('sorted',c===sortCol);th.querySelector('.sort-arrow').textContent=c===sortCol?(sortDir===1?'↑':'↓'):'↕';}});
+  renderPagination(tot,pages);
+}
+function sortBy(col){if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=col==='last'?-1:1;}applyKlantenFilters();}
+function renderPagination(tot,pages){
+  const pg=document.getElementById('pagination');
+  if(pages<=1){pg.innerHTML='';return;}
+  const s=(currentPage-1)*pageSize+1,e=Math.min(currentPage*pageSize,tot);
+  let btns='';
+  for(let i=1;i<=pages;i++){if(i===1||i===pages||Math.abs(i-currentPage)<=1)btns+=`<div class="pag-btn${i===currentPage?' active':''}" onclick="gp(${i})">${i}</div>`;else if(Math.abs(i-currentPage)===2)btns+=`<div class="pag-btn" style="pointer-events:none;opacity:.3">…</div>`;}
+  pg.innerHTML=`<span class="pag-info">${s}–${e} van ${tot}</span><div class="pag-btns"><div class="pag-arrow${currentPage===1?' disabled':''}" onclick="gp(${currentPage-1})"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>${btns}<div class="pag-arrow${currentPage===pages?' disabled':''}" onclick="gp(${currentPage+1})"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div>`;
+}
+function gp(n){if(n<1)return;currentPage=n;applyKlantenFilters();}
+
+// ══ VESTIGINGEN RANKING ══
+function buildVestData(){
+  const vm={};
+  allData.forEach(d=>{
+    if(!d.vestiging)return;
+    if(!vm[d.vestiging])vm[d.vestiging]={tot:0,ret:0,wk:0,mn:0,sp:0,nw:0,orders:0,omzet:0,freqSum:0,freqCount:0,klanten:[]};
+    vm[d.vestiging].tot++;
+    if(d.orders>1)vm[d.vestiging].ret++;
+    if(d.seg==='weekly')vm[d.vestiging].wk++;
+    if(d.seg==='monthly')vm[d.vestiging].mn++;
+    if(d.seg==='sporadic')vm[d.vestiging].sp++;
+    if(d.seg==='new')vm[d.vestiging].nw++;
+    vm[d.vestiging].orders+=d.orders;
+    vm[d.vestiging].omzet+=(d.omzet||0);
+    if(d.freq&&d.freq>0){vm[d.vestiging].freqSum+=d.freq;vm[d.vestiging].freqCount++;}
+    vm[d.vestiging].klanten.push(d);
+  });
+  // compute derived
+  Object.values(vm).forEach(s=>{
+    s.avgInterval=s.freqCount?Math.round(s.freqSum/s.freqCount):null;
+    s.avgLTV=s.tot&&s.omzet>0?+(s.omzet/s.tot).toFixed(2):0;
+  });
+  return vm;
+}
+function setVestSort(mode){
+  vestSortMode=mode;
+  document.querySelectorAll('.sort-btn').forEach((b,i)=>{b.classList.toggle('active',['pct','tot','wk'][i]===mode);});
+  renderVestPage();
+}
+function renderVestPage(){
+  if(!allData.length&&importHistory.length)rebuildAllData();
+  if(!allData.length){document.getElementById('vestRankingTable').innerHTML='<div class="empty-state"><div class="es-icon">📂</div><div class="es-title">Nog geen data</div><div class="es-sub">Importeer eerst een CSV</div></div>';return;}
+  const vm=buildVestData();
+  let sorted=Object.entries(vm);
+  if(vestSortMode==='pct')sorted.sort((a,b)=>{const pa=a[1].tot?b[1].ret/b[1].tot:0;const pb=b[1].tot?b[1].ret/b[1].tot:0;return pb-pa;});
+  else if(vestSortMode==='tot')sorted.sort((a,b)=>b[1].tot-a[1].tot);
+  else if(vestSortMode==='wk')sorted.sort((a,b)=>b[1].wk-a[1].wk);
+  const maxPct=Math.max(...sorted.map(([,s])=>s.tot?Math.round(s.ret/s.tot*100):0),1);
+  document.getElementById('vestRankingTable').innerHTML=`<table class="rank-table" style="width:100%"><tbody>${sorted.map(([v,s],i)=>{
+    const p=s.tot?Math.round(s.ret/s.tot*100):0;
+    const grad=p>=60?'linear-gradient(90deg,#00c98d,#00bcd4)':p>=35?'linear-gradient(90deg,#6c3fff,#ff4fc8)':'linear-gradient(90deg,#ff4e6a,#ff4fc8)';
+    const numClass=i===0?'gold':i===1?'silver':i===2?'bronze':'';
+    const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+    return`<tr onclick="openDrilldown('${v.replace(/'/g,"\\'")}')">
+      <td style="width:44px"><div class="rank-num ${numClass}">${medal||('#'+(i+1))}</div></td>
+      <td><div class="rank-name">${v}</div><div class="rank-sub">${s.tot} klanten · ${s.wk} wekelijks · ${s.avgInterval?'gem. interval: '+s.avgInterval+'d':'—'}${s.avgLTV>0?' · LTV: €'+s.avgLTV:''}</div></td>
+      <td style="width:200px"><div class="rank-bar-bg"><div class="rank-bar-fill" style="width:${Math.round(p/maxPct*100)}%;background:${grad}"></div></div></td>
+      <td style="width:60px"><div class="rank-pct" style="background:${grad};-webkit-background-clip:text;-webkit-text-fill-color:transparent">${p}%</div></td>
+      <td style="width:24px"><div class="rank-arrow">›</div></td>
+    </tr>`;
+  }).join('')}</tbody></table>`;
+}
+
+// ══ DRILLDOWN ══
+function openDrilldown(vestName){
+  const vm=buildVestData();
+  const s=vm[vestName];if(!s)return;
+  const p=s.tot?Math.round(s.ret/s.tot*100):0;
+  document.getElementById('ddTitle').textContent=vestName;
+  document.getElementById('ddSubtitle').textContent=`${s.tot} klanten · ${p}% terugkerend`;
+  ddPeriod='week';
+  renderDrilldownBody(vestName,s);
+  document.getElementById('drilldownOverlay').classList.add('open');
+}
+function closeDrilldown(e){if(e.target===document.getElementById('drilldownOverlay'))closeDrilldownBtn();}
+function closeDrilldownBtn(){document.getElementById('drilldownOverlay').classList.remove('open');if(ddChartInst){ddChartInst.destroy();ddChartInst=null;}}
+
+function renderDrilldownBody(vestName,s){
+  const p=s.tot?Math.round(s.ret/s.tot*100):0;
+  const avg=s.tot?(s.orders/s.tot).toFixed(1):0;
+  const grad=p>=60?'linear-gradient(135deg,#00c98d,#00bcd4)':p>=35?'linear-gradient(135deg,#6c3fff,#ff4fc8)':'linear-gradient(135deg,#ff4e6a,#ff4fc8)';
+
+  // Build period chart data
+  const periodData=buildPeriodData(s.klanten,ddPeriod,null,null);
+
+  document.getElementById('ddBody').innerHTML=`
+    <div class="dd-metrics" style="grid-template-columns:repeat(${s.avgLTV>0?6:5},1fr)">
+      <div class="dd-metric"><div class="val">${s.tot}</div><div class="lbl">Klanten</div></div>
+      <div class="dd-metric"><div class="val" style="background:${grad};-webkit-background-clip:text;-webkit-text-fill-color:transparent">${p}%</div><div class="lbl">Terugkerend</div></div>
+      <div class="dd-metric"><div class="val" style="color:var(--green)">${s.wk}</div><div class="lbl">Wekelijks</div></div>
+      <div class="dd-metric"><div class="val">${avg}</div><div class="lbl">Gem. orders</div></div>
+      <div class="dd-metric"><div class="val" style="color:var(--accent)">${s.avgInterval?s.avgInterval+'d':'—'}</div><div class="lbl">Gem. interval</div></div>
+      ${s.avgLTV>0?`<div class="dd-metric"><div class="val" style="color:var(--green);font-size:18px">€${s.avgLTV}</div><div class="lbl">Gem. LTV</div></div>`:''}
+    </div>
+
+    <div class="dd-section">
+      <div class="dd-section-title">📅 Terugkerende klanten per periode</div>
+      <div style="display:flex;align-items:flex-end;gap:12px;margin-bottom:1.25rem;flex-wrap:wrap">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px">Van</div>
+          <input type="date" id="ddDateFrom" style="padding:8px 10px;border:1.5px solid var(--border2);border-radius:var(--radius);font-size:12px;font-family:'Plus Jakarta Sans',sans-serif;color:var(--text);background:#fff;outline:none;cursor:pointer" oninput="refreshDdChart('${vestName}')">
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px">Tot</div>
+          <input type="date" id="ddDateTo" style="padding:8px 10px;border:1.5px solid var(--border2);border-radius:var(--radius);font-size:12px;font-family:'Plus Jakarta Sans',sans-serif;color:var(--text);background:#fff;outline:none;cursor:pointer" oninput="refreshDdChart('${vestName}')">
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px">Granulariteit</div>
+          <div class="period-tabs" style="margin-bottom:0">
+            <button class="period-tab ${ddPeriod==='day'?'active':''}" onclick="setDdPeriod('${vestName}','day')">Per dag</button>
+            <button class="period-tab ${ddPeriod==='3day'?'active':''}" onclick="setDdPeriod('${vestName}','3day')">Per 3 dagen</button>
+            <button class="period-tab ${ddPeriod==='week'?'active':''}" onclick="setDdPeriod('${vestName}','week')">Per week</button>
+            <button class="period-tab ${ddPeriod==='month'?'active':''}" onclick="setDdPeriod('${vestName}','month')">Per maand</button>
+            <button class="period-tab ${ddPeriod==='quarter'?'active':''}" onclick="setDdPeriod('${vestName}','quarter')">Per kwartaal</button>
+          </div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="ddChart"></canvas></div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px">📌 Gebaseerd op de datum van de <strong>laatste bestelling</strong> per klant</div>
+    </div>
+
+    <div class="dd-section">
+      <div class="dd-section-title">🎯 Segmentverdeling</div>
+      <div class="seg-grid">
+        <div class="seg-item"><div class="seg-dot" style="background:#00c98d"></div><div class="seg-item-label">Wekelijks</div><div><div class="seg-item-val">${s.wk}</div><div class="seg-item-pct">${s.tot?Math.round(s.wk/s.tot*100):0}%</div></div></div>
+        <div class="seg-item"><div class="seg-dot" style="background:#6c3fff"></div><div class="seg-item-label">Maandelijks</div><div><div class="seg-item-val">${s.mn}</div><div class="seg-item-pct">${s.tot?Math.round(s.mn/s.tot*100):0}%</div></div></div>
+        <div class="seg-item"><div class="seg-dot" style="background:#ff9f2e"></div><div class="seg-item-label">Incidenteel</div><div><div class="seg-item-val">${s.sp}</div><div class="seg-item-pct">${s.tot?Math.round(s.sp/s.tot*100):0}%</div></div></div>
+        <div class="seg-item"><div class="seg-dot" style="background:#ff4e6a"></div><div class="seg-item-label">Eenmalig</div><div><div class="seg-item-val">${s.nw}</div><div class="seg-item-pct">${s.tot?Math.round(s.nw/s.tot*100):0}%</div></div></div>
+      </div>
+    </div>
+
+    <div class="dd-section">
+      <div class="dd-section-title">👥 Klanten <span style="color:var(--text3);font-size:10px;font-weight:400;margin-left:6px">gesorteerd op meeste bestellingen</span></div>
+      <div class="dd-klanten-list">
+        ${[...s.klanten].sort((a,b)=>b.orders-a.orders).map(d=>`
+          <div class="dd-klant-row">
+            <div style="flex:1"><div class="dd-klant-name">${d.voornaam} ${d.achternaam}</div><div class="dd-klant-sub">${d.telefoon||'—'}</div></div>
+            <div style="text-align:right"><div style="font-size:13px;font-weight:700">${d.orders}x</div><div style="font-size:10px;color:var(--text3)">${segLabel(d.seg)}</div></div>
+            <div style="margin-left:10px">${segTag(d.seg)}</div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+
+  // render chart
+  setTimeout(()=>{
+    // Set date range defaults based on klanten data
+    const dates=s.klanten.map(d=>d.last).filter(Boolean).sort((a,b)=>a-b);
+    if(dates.length){
+      const minDate=dates[0].toISOString().slice(0,10);
+      const maxDate=dates[dates.length-1].toISOString().slice(0,10);
+      const fromEl=document.getElementById('ddDateFrom');
+      const toEl=document.getElementById('ddDateTo');
+      if(fromEl&&!fromEl.value)fromEl.value=minDate;
+      if(toEl&&!toEl.value)toEl.value=maxDate;
+    }
+    renderDdChart(periodData);
+  },50);
+}
+
+function buildPeriodData(klanten, mode, fromDate, toDate){
+  const buckets={};
+  klanten.forEach(d=>{
+    if(!d.last)return;
+    // Apply date range filter
+    if(fromDate&&d.last<fromDate)return;
+    if(toDate&&d.last>toDate)return;
+    let key;
+    if(mode==='day'){
+      key=d.last.toISOString().slice(0,10);
+    } else if(mode==='3day'){
+      // Group into 3-day buckets from epoch
+      const daysSinceEpoch=Math.floor(d.last.getTime()/864e5);
+      const bucket=Math.floor(daysSinceEpoch/3)*3;
+      const bucketDate=new Date(bucket*864e5);
+      key=bucketDate.toISOString().slice(0,10);
+    } else if(mode==='week'){
+      const monday=new Date(d.last);monday.setDate(monday.getDate()-((monday.getDay()+6)%7));
+      key=monday.toISOString().slice(0,10);
+    } else if(mode==='month'){
+      key=d.last.getFullYear()+'-'+String(d.last.getMonth()+1).padStart(2,'0');
+    } else {
+      const q=Math.floor(d.last.getMonth()/3)+1;
+      key=d.last.getFullYear()+' K'+q;
+    }
+    if(!buckets[key])buckets[key]={tot:0,ret:0};
+    buckets[key].tot++;
+    if(d.orders>1)buckets[key].ret++;
+  });
+  const sorted=Object.entries(buckets).sort((a,b)=>a[0]<b[0]?-1:1);
+  const labels=sorted.map(([k])=>{
+    if(mode==='day'||mode==='3day'){const d=new Date(k);return fmtShort(d);}
+    if(mode==='week'){const d=new Date(k);return fmtShort(d);}
+    if(mode==='month'){const[y,m]=k.split('-');return new Date(y,m-1).toLocaleDateString('nl-NL',{month:'short',year:'2-digit'});}
+    return k;
+  });
+  return{labels,tot:sorted.map(([,v])=>v.tot),ret:sorted.map(([,v])=>v.ret),pct:sorted.map(([,v])=>v.tot?Math.round(v.ret/v.tot*100):0)};
+}
+
+function renderDdChart(data){
+  if(ddChartInst)ddChartInst.destroy();
+  const ctx=document.getElementById('ddChart');if(!ctx)return;
+  ddChartInst=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:data.labels,
+      datasets:[
+        {label:'Terugkerend',data:data.ret,backgroundColor:'rgba(108,63,255,.8)',borderRadius:5,order:1},
+        {label:'Nieuw / eenmalig',data:data.tot.map((t,i)=>t-data.ret[i]),backgroundColor:'rgba(226,220,248,.6)',borderRadius:5,order:2},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{color:'#6b62a0',font:{family:'Plus Jakarta Sans',size:11},boxWidth:10,padding:12}}},
+      scales:{
+        x:{stacked:true,ticks:{color:'#a99fd4',font:{size:10}},grid:{display:false}},
+        y:{stacked:true,ticks:{color:'#a99fd4',font:{size:10}},grid:{color:'rgba(226,220,248,.5)'}}
+      }
+    }
+  });
+}
+
+function getDateRange(){
+  const fromEl=document.getElementById('ddDateFrom');
+  const toEl=document.getElementById('ddDateTo');
+  const from=fromEl&&fromEl.value?new Date(fromEl.value):null;
+  const to=toEl&&toEl.value?new Date(toEl.value+'T23:59:59'):null;
+  return{from,to};
+}
+
+function refreshDdChart(vestName){
+  const vm=buildVestData();
+  const s=vm[vestName];if(!s)return;
+  const{from,to}=getDateRange();
+  const periodData=buildPeriodData(s.klanten,ddPeriod,from,to);
+  renderDdChart(periodData);
+}
+
+function setDdPeriod(vestName,period){
+  ddPeriod=period;
+  const vm=buildVestData();
+  const s=vm[vestName];if(!s)return;
+  // update tab active state
+  document.querySelectorAll('.period-tab').forEach(t=>{
+    const map={day:'Per dag','3day':'Per 3',week:'Per week',month:'Per maand',quarter:'Per kwartaal'};
+    t.classList.toggle('active',t.textContent.trim().startsWith(map[period]||period));
+  });
+  const{from,to}=getDateRange();
+  const periodData=buildPeriodData(s.klanten,period,from,to);
+  renderDdChart(periodData);
+}
+
+// ══ GESCHIEDENIS PAGE ══
+function renderGeschiedenisPage(){
+  const el=document.getElementById('geschiedenisContent');
+  if(!importHistory.length){
+    el.innerHTML=`<div class="empty-state"><div class="es-icon">📂</div><div class="es-title">Geen imports opgeslagen</div><div class="es-sub">Importeer een CSV om te beginnen. Data wordt automatisch opgeslagen.</div><button class="btn btn-primary" onclick="showPage('import')">CSV importeren →</button></div>`;
+    return;
+  }
+  // Summary
+  const allKeys=new Set();
+  importHistory.forEach(imp=>imp.data.forEach(d=>allKeys.add(clientKey(d))));
+  const returnKlanten=new Set();
+  const seenInWeek={};
+  importHistory.forEach(imp=>{
+    imp.data.forEach(d=>{
+      const k=clientKey(d);
+      if(seenInWeek[k]!==undefined)returnKlanten.add(k);
+      seenInWeek[k]=(seenInWeek[k]||0)+1;
+    });
+  });
+
+  // Week-over-week table
+  const weekCols=importHistory.map(imp=>`<th style="text-align:center;padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1.5px solid var(--border);white-space:nowrap">${imp.label}<div style="font-size:10px;color:var(--text3);font-weight:400;margin-top:2px">${imp.count} klanten</div></th>`).join('');
+
+  // Build new vs return per week
+  const seen=new Set();
+  const weekStats=importHistory.map(imp=>{
+    let nieuw=0,terug=0;
+    imp.data.forEach(d=>{
+      const k=clientKey(d);
+      if(seen.has(k))terug++;else nieuw++;
+      seen.add(k);
+    });
+    return{nieuw,terug,pct:imp.count?Math.round(terug/imp.count*100):0};
+  });
+
+  el.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem">
+      <div class="metric-card mc-blue"><div class="mc-stripe"></div><div class="metric-label">Imports opgeslagen</div><div class="metric-value">${importHistory.length}</div><div class="metric-sub">weken bijgehouden</div></div>
+      <div class="metric-card mc-green"><div class="mc-stripe"></div><div class="metric-label">Unieke klanten</div><div class="metric-value">${allKeys.size}</div><div class="metric-sub">over alle weken</div></div>
+      <div class="metric-card mc-amber"><div class="mc-stripe"></div><div class="metric-label">Terugkerende klanten</div><div class="metric-value">${returnKlanten.size}</div><div class="metric-sub">meer dan 1 week gezien</div></div>
+      <div class="metric-card mc-purple"><div class="mc-stripe"></div><div class="metric-label">Laatste import</div><div class="metric-value" style="font-size:16px">${importHistory[importHistory.length-1]?.label||'—'}</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="card-header"><span class="card-title">Nieuw vs. terugkerend per week</span></div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1.5px solid var(--border)">Week</th>
+            <th style="padding:8px 12px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1.5px solid var(--border)">Totaal</th>
+            <th style="padding:8px 12px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1.5px solid var(--border)">🆕 Nieuw</th>
+            <th style="padding:8px 12px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1.5px solid var(--border)">🔄 Terugkerend</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1.5px solid var(--border)">% Terugkerend</th>
+            <th style="padding:8px 12px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1.5px solid var(--border)">Actie</th>
+          </tr></thead>
+          <tbody>
+            ${importHistory.map((imp,i)=>{
+              const st=weekStats[i];
+              const pctColor=st.pct>=60?'var(--green)':st.pct>=30?'var(--accent)':'var(--red)';
+              const isLast=i===importHistory.length-1;
+              return`<tr style="${isLast?'background:rgba(108,63,255,.03)':''}">
+                <td style="padding:10px 12px;border-bottom:1.5px solid var(--border);font-weight:600">${imp.label}${isLast?` <span style="font-size:10px;padding:2px 8px;background:rgba(108,63,255,.1);color:var(--accent);border-radius:20px;margin-left:6px">Laatste</span>`:''}
+                  <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px">${new Date(imp.date).toLocaleDateString('nl-NL')}</div></td>
+                <td style="padding:10px 12px;border-bottom:1.5px solid var(--border);text-align:center;font-family:'DM Mono',monospace;font-weight:700">${imp.count}</td>
+                <td style="padding:10px 12px;border-bottom:1.5px solid var(--border);text-align:center;font-family:'DM Mono',monospace;color:var(--text2)">${st.nieuw}</td>
+                <td style="padding:10px 12px;border-bottom:1.5px solid var(--border);text-align:center;font-family:'DM Mono',monospace;font-weight:700;color:var(--green)">${st.terug}</td>
+                <td style="padding:10px 12px;border-bottom:1.5px solid var(--border)">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;min-width:80px"><div style="height:100%;width:${st.pct}%;background:${pctColor};border-radius:4px"></div></div>
+                    <span style="font-family:'DM Mono',monospace;font-weight:700;color:${pctColor};min-width:36px">${st.pct}%</span>
+                  </div>
+                </td>
+                <td style="padding:10px 12px;border-bottom:1.5px solid var(--border);text-align:center">
+                  <button onclick="deleteImport('${imp.id}')" style="padding:4px 10px;font-size:11px;border:1.5px solid var(--border);border-radius:6px;background:#fff;color:var(--text3);cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">Verwijderen</button>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header"><span class="card-title">🏆 Trouwste klanten (meeste weken gezien)</span></div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1.5px solid var(--border)">#</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1.5px solid var(--border)">Klant</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1.5px solid var(--border)">Vestiging</th>
+            <th style="padding:8px 12px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1.5px solid var(--border)">Weken gezien</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1.5px solid var(--border)">Aanwezigheid</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1.5px solid var(--border)">Segment</th>
+          </tr></thead>
+          <tbody>
+            ${[...allData].filter(d=>d.visitCount>1).sort((a,b)=>(b.visitCount||0)-(a.visitCount||0)).slice(0,20).map((d,i)=>{
+              const pct=importHistory.length?Math.round((d.visitCount||1)/importHistory.length*100):0;
+              const dots=importHistory.map(imp=>imp.data.some(r=>clientKey(r)===clientKey(d))?'●':'○').join(' ');
+              return`<tr>
+                <td style="padding:9px 12px;border-bottom:1.5px solid var(--border);font-family:'DM Mono',monospace;color:var(--text3);font-weight:700">${i<3?['🥇','🥈','🥉'][i]:'#'+(i+1)}</td>
+                <td style="padding:9px 12px;border-bottom:1.5px solid var(--border)"><div style="font-weight:700">${d.voornaam} ${d.achternaam}</div><div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${d.telefoon||'—'}</div></td>
+                <td style="padding:9px 12px;border-bottom:1.5px solid var(--border);font-size:12px">${d.vestiging||'—'}</td>
+                <td style="padding:9px 12px;border-bottom:1.5px solid var(--border);text-align:center"><span style="font-size:18px;font-weight:700;color:var(--green)">${d.visitCount||1}</span><span style="font-size:11px;color:var(--text3)"> / ${importHistory.length}</span></td>
+                <td style="padding:9px 12px;border-bottom:1.5px solid var(--border)"><span style="font-family:'DM Mono',monospace;font-size:13px;letter-spacing:3px;color:var(--accent)">${dots}</span></td>
+                <td style="padding:9px 12px;border-bottom:1.5px solid var(--border)">${segTag(d.seg)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function deleteImport(id){
+  showConfirm(
+    'Import verwijderen?',
+    'Deze import wordt permanent verwijderd uit de database.',
+    async()=>{
+      toast('⏳ Verwijderen...','#6c3fff');
+      await deleteOneImport(id);
+      importHistory=importHistory.filter(i=>i.id!==id);
+      rebuildAllData();
+      if(allData.length){buildOvFilters();applyOvFilters();}
+      else{document.getElementById('ovDash').style.display='none';document.getElementById('ovEmpty').style.display='block';}
+      renderGeschiedenisPage();
+      toast('✅ Import verwijderd');
+    }
+  );
+}
+
+function confirmClearHistory(){
+  showConfirm(
+    'Alle data wissen?',
+    'Alle opgeslagen imports worden permanent verwijderd uit de database. Dit kan niet ongedaan worden gemaakt.',
+    async()=>{
+      toast('⏳ Wissen...','#6c3fff');
+      await clearAllImports();
+      importHistory=[];allData=[];filtered=[];
+      document.getElementById('ovDash').style.display='none';
+      document.getElementById('ovEmpty').style.display='block';
+      renderGeschiedenisPage();
+      toast('Alle imports verwijderd','#ff4e6a');
+    },
+    true
+  );
+}
+
+function showConfirm(title, message, onConfirm, danger=false, okLabel=null){
+  // Remove existing if any
+  document.getElementById('confirmModal')?.remove();
+  const color=danger?'#ff4e6a':'var(--accent)';
+  const btnLabel=okLabel || (danger?'Ja, alles wissen':'Verwijderen');
+  const modal=document.createElement('div');
+  modal.id='confirmModal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(26,21,53,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:2rem;backdrop-filter:blur(4px)';
+  modal.innerHTML=`
+    <div style="background:#fff;border-radius:20px;padding:2rem;max-width:380px;width:100%;box-shadow:0 24px 60px rgba(26,21,53,.2);animation:slideUp .25s cubic-bezier(.4,0,.2,1)">
+      <div style="font-size:18px;font-weight:700;letter-spacing:-.3px;margin-bottom:8px;color:var(--text)">${title}</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:1.5rem;line-height:1.6">${message}</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="document.getElementById('confirmModal').remove()" style="padding:9px 18px;border:1.5px solid var(--border2);border-radius:var(--radius);font-size:13px;font-weight:600;font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:var(--text2);cursor:pointer">Annuleren</button>
+        <button id="confirmOkBtn" style="padding:9px 18px;border:none;border-radius:var(--radius);font-size:13px;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;background:${color};color:#fff;cursor:pointer">${btnLabel}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  // Close on backdrop click
+  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
+  const onKeyDown=(e)=>{
+    if(e.key==='Escape'){
+      modal.remove();
+      document.removeEventListener('keydown', onKeyDown);
+    }
+  };
+  document.addEventListener('keydown', onKeyDown);
+  document.getElementById('confirmOkBtn').addEventListener('click',()=>{
+    modal.remove();
+    document.removeEventListener('keydown', onKeyDown);
+    onConfirm();
+  });
+}
+
+function confirmLogout(){
+  showConfirm(
+    'Uitloggen?',
+    'Weet je zeker dat je wilt uitloggen?',
+    ()=>doLogout(),
+    false,
+    'Uitloggen'
+  );
+}
+
+// ══ COHORT ANALYSE ══
+let cohortMode='retention';
+function setCohortMode(mode){
+  cohortMode=mode;
+  document.querySelectorAll('#cohortModeBtns .sort-btn').forEach(b=>{b.classList.toggle('active',b.textContent.includes(mode==='retention'?'Retentie':'Aantal'));});
+  renderCohortPage();
+}
+
+function renderCohortPage(){
+  if(!allData.length&&importHistory.length)rebuildAllData();
+  const el=document.getElementById('cohortContent');
+  if(!importHistory.length||importHistory.length<2){
+    el.innerHTML=`<div class="empty-state"><div class="es-icon">📊</div><div class="es-title">Minimaal 2 imports nodig</div><div class="es-sub">Importeer meerdere weken om cohorten te vergelijken. Je hebt nu ${importHistory.length} import(en).</div></div>`;
+    return;
+  }
+
+  // Build cohort matrix: for each import week (cohort), count how many customers came back in each subsequent week
+  const weeks=importHistory;
+  const nWeeks=weeks.length;
+
+  // For each cohort week, get its customers and track in which later weeks they reappeared
+  const cohorts=weeks.map((cohortImp,ci)=>{
+    const cohortKeys=new Set(cohortImp.data.map(d=>clientKey(d)));
+    const cohortSize=cohortKeys.size;
+    // For each subsequent week, how many of cohort reappeared?
+    const retention=weeks.map((w,wi)=>{
+      if(wi<ci)return null; // before cohort
+      if(wi===ci)return cohortSize; // week 0 = 100%
+      const appeared=w.data.filter(d=>cohortKeys.has(clientKey(d))).length;
+      return appeared;
+    });
+    return{label:cohortImp.label,size:cohortSize,retention};
+  });
+
+  // Build header
+  const maxCols=nWeeks;
+  const colHeaders=weeks.map((_,i)=>`<th style="text-align:center;padding:8px 6px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text3);border-bottom:1.5px solid var(--border);white-space:nowrap;min-width:70px">Week +${i}</th>`).join('');
+
+  // Build rows
+  const rows=cohorts.map((c,ci)=>{
+    const cells=c.retention.map((v,wi)=>{
+      if(v===null)return`<td style="padding:8px 6px;text-align:center;background:var(--surface2);border-bottom:1px solid var(--border)"></td>`;
+      const pct=c.size?Math.round(v/c.size*100):0;
+      const opacity=wi===ci?1:Math.max(0.1,pct/100);
+      const bg=wi===ci?'rgba(108,63,255,0.15)':`rgba(108,63,255,${(opacity*0.7).toFixed(2)})`;
+      const textColor=pct>50?'#fff':'var(--text)';
+      const display=cohortMode==='retention'?pct+'%':v;
+      return`<td style="padding:8px 6px;text-align:center;background:${bg};color:${pct>50?'#fff':'var(--text)'};font-family:'DM Mono',monospace;font-size:12px;font-weight:${wi===ci?700:500};border-bottom:1px solid var(--border)">${display}</td>`;
+    }).join('');
+    return`<tr>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--border);white-space:nowrap;min-width:160px">
+        <div style="font-size:12px;font-weight:600">${c.label}</div>
+        <div style="font-size:10px;color:var(--text3)">${c.size} klanten</div>
+      </td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  // Avg retention per week column
+  const avgRow=Array.from({length:nWeeks},(_,wi)=>{
+    const vals=cohorts.map(c=>c.retention[wi]).filter(v=>v!==null&&wi>=cohorts.indexOf(cohorts.find(c=>c.retention[wi]!==null)));
+    const cohortAtWi=cohorts.filter((_,ci)=>ci<=wi);
+    if(!cohortAtWi.length)return`<td style="padding:8px 6px;text-align:center;background:var(--surface2);border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-size:11px"></td>`;
+    const avgPct=Math.round(cohortAtWi.reduce((sum,c)=>{const v=c.retention[wi];return v!==null?sum+(c.size?v/c.size*100:0):sum;},0)/cohortAtWi.length);
+    return`<td style="padding:8px 6px;text-align:center;background:var(--surface2);border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:var(--accent)">${cohortMode==='retention'?avgPct+'%':'—'}</td>`;
+  }).join('');
+
+  el.innerHTML=`
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="card-header">
+        <span class="card-title">📊 Retentie per cohort-week</span>
+        <span style="font-size:11px;color:var(--text3)">Elke rij = klanten die voor het eerst kwamen in die week. Kolommen = hoeveel % terugkwam.</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text3);border-bottom:1.5px solid var(--border);min-width:160px">Cohort (instroom week)</th>
+              ${colHeaders}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+            <tr style="background:var(--surface2)">
+              <td style="padding:8px 12px;font-size:11px;font-weight:700;color:var(--text3);border-bottom:1px solid var(--border)">Gemiddeld</td>
+              ${avgRow}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:12px;font-size:11px;color:var(--text3)">
+        💡 <strong>Hoe lezen:</strong> De eerste cel van elke rij (Week +0) = 100% — dat zijn de nieuwe klanten van die week. Week +1 toont hoeveel % de week erna terugkwam. Donkerder paars = hogere retentie.
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
+      <div class="card">
+        <div class="card-header"><span class="card-title">🏆 Beste cohort-week</span></div>
+        ${(()=>{
+          if(cohorts.length<2)return'<div style="color:var(--text3);font-size:13px">Meer imports nodig</div>';
+          const best=cohorts.slice(0,-1).map(c=>{const w1ret=c.retention[cohorts.indexOf(c)+1];const pct=w1ret!==null&&c.size?Math.round(w1ret/c.size*100):0;return{label:c.label,size:c.size,pct};}).sort((a,b)=>b.pct-a.pct)[0];
+          return best?`<div style="font-size:14px;font-weight:700;margin-bottom:6px">${best.label}</div><div style="font-size:28px;font-weight:700;color:var(--green)">${best.pct}%</div><div style="font-size:12px;color:var(--text3);margin-top:4px">terugkeer na week 1 · ${best.size} instroom klanten</div>`:'—';
+        })()}
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">📉 Slechtste cohort-week</span></div>
+        ${(()=>{
+          if(cohorts.length<2)return'<div style="color:var(--text3);font-size:13px">Meer imports nodig</div>';
+          const worst=cohorts.slice(0,-1).map(c=>{const w1ret=c.retention[cohorts.indexOf(c)+1];const pct=w1ret!==null&&c.size?Math.round(w1ret/c.size*100):0;return{label:c.label,size:c.size,pct};}).sort((a,b)=>a.pct-b.pct)[0];
+          return worst?`<div style="font-size:14px;font-weight:700;margin-bottom:6px">${worst.label}</div><div style="font-size:28px;font-weight:700;color:var(--red)">${worst.pct}%</div><div style="font-size:12px;color:var(--text3);margin-top:4px">terugkeer na week 1 · ${worst.size} instroom klanten</div>`:'—';
+        })()}
+      </div>
+    </div>`;
+}
+
+// ══ KANAALVERGELIJKING ══
+function renderChannelComparison(data){
+  const el=document.getElementById('channelComparison');
+  if(!el)return;
+  const web=data.filter(d=>d.kanaal==='website');
+  const plat=data.filter(d=>d.kanaal==='platform');
+  const multi=data.filter(d=>d.isMultiChannel);
+  if(!web.length&&!plat.length){el.innerHTML='<div style="font-size:13px;color:var(--text3);padding:1rem 0">Geen kanaaldata beschikbaar. Klanten met e-mailadres = eigen website, zonder = Thuisbezorgd.</div>';return;}
+
+  function chanStats(arr){
+    const tot=arr.length;
+    const ret=arr.filter(d=>d.orders>1).length;
+    const wk=arr.filter(d=>d.seg==='weekly').length;
+    const avgOrders=tot?+(arr.reduce((s,d)=>s+d.orders,0)/tot).toFixed(1):0;
+    const avgLTV=tot&&arr.some(d=>d.omzet>0)?+(arr.reduce((s,d)=>s+(d.omzet||0),0)/tot).toFixed(2):0;
+    const withFreq=arr.filter(d=>d.freq>0);
+    const avgInt=withFreq.length?Math.round(withFreq.reduce((s,d)=>s+d.freq,0)/withFreq.length):null;
+    return{tot,ret,retPct:tot?Math.round(ret/tot*100):0,wk,wkPct:tot?Math.round(wk/tot*100):0,avgOrders,avgLTV,avgInt};
+  }
+  const ws=chanStats(web);
+  const ps=chanStats(plat);
+
+  function statRow(label,webVal,platVal,unit='',higherIsBetter=true){
+    const webNum=parseFloat(webVal)||0,platNum=parseFloat(platVal)||0;
+    const webBetter=higherIsBetter?webNum>=platNum:webNum<=platNum;
+    const platBetter=higherIsBetter?platNum>webNum:platNum<webNum;
+    return`<tr>
+      <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);font-weight:500">${label}</td>
+      <td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${webBetter?'var(--green)':'var(--text)'}">${webVal}${unit} ${webBetter&&platNum!==webNum?'✓':''}</td>
+      <td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${platBetter?'var(--green)':'var(--text)'}">${platVal}${unit} ${platBetter?'✓':''}</td>
+    </tr>`;
+  }
+
+  el.innerHTML=`
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="padding:9px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);border-bottom:1.5px solid var(--border)">Statistiek</th>
+          <th style="padding:9px 12px;text-align:center;font-size:11px;font-weight:700;color:var(--green);border-bottom:1.5px solid var(--border);background:rgba(0,201,141,.04)">🌐 Eigen website<br><span style="font-size:10px;font-weight:400;color:var(--text3)">${ws.tot} klanten</span></th>
+          <th style="padding:9px 12px;text-align:center;font-size:11px;font-weight:700;color:var(--amber);border-bottom:1.5px solid var(--border);background:rgba(255,159,46,.04)">📦 Thuisbezorgd<br><span style="font-size:10px;font-weight:400;color:var(--text3)">${ps.tot} klanten</span></th>
+        </tr></thead>
+        <tbody>
+          ${statRow('% Terugkerend',ws.retPct+'%',ps.retPct+'%')}
+          ${statRow('% Wekelijks terugkerend',ws.wkPct+'%',ps.wkPct+'%')}
+          ${statRow('Gem. bestellingen',ws.avgOrders,ps.avgOrders)}
+          ${ws.avgLTV>0||ps.avgLTV>0?statRow('Gem. klantwaarde (LTV)','€'+ws.avgLTV,'€'+ps.avgLTV):''}
+          ${statRow('Gem. interval',ws.avgInt?ws.avgInt+'d':'—',ps.avgInt?ps.avgInt+'d':'—','',false)}
+        </tbody>
+      </table>
+    </div>
+    ${multi.length>0?`<div style="margin-top:1rem;padding:10px 14px;background:linear-gradient(135deg,rgba(108,63,255,.06),rgba(0,201,141,.06));border-radius:var(--radius);border:1px solid var(--border)"><span style="font-size:12px;font-weight:700;color:var(--accent)">🔀 ${multi.length} klanten bestellen via BEIDE kanalen</span> <span style="font-size:11px;color:var(--text2);margin-left:6px">— Dit zijn je meest waardevolle klanten. Filter op "Beide kanalen" om ze te zien.</span></div>`:''}`;
+}
+
+// ══ AI ASSISTENT ══
+let aiHistory=[];
+
+function buildDataContext(){
+  if(!allData.length)return'Geen data geladen.';
+  const tot=allData.length;
+  const ret=allData.filter(d=>d.orders>1).length;
+  const wk=allData.filter(d=>d.seg==='weekly').length;
+  const mn=allData.filter(d=>d.seg==='monthly').length;
+  const sp=allData.filter(d=>d.seg==='sporadic').length;
+  const nw=allData.filter(d=>d.seg==='new').length;
+  const web=allData.filter(d=>d.kanaal==='website').length;
+  const plat=allData.filter(d=>d.kanaal==='platform').length;
+  const multi=allData.filter(d=>d.isMultiChannel).length;
+  const hasOmzet=allData.some(d=>d.omzet>0);
+  const withFreq=allData.filter(d=>d.freq>0);
+  const avgInterval=withFreq.length?Math.round(withFreq.reduce((s,d)=>s+d.freq,0)/withFreq.length):null;
+
+  // Per vestiging
+  const vm={};
+  allData.forEach(d=>{
+    if(!d.vestiging)return;
+    if(!vm[d.vestiging])vm[d.vestiging]={tot:0,ret:0,wk:0,omzet:0,freqSum:0,freqCnt:0};
+    vm[d.vestiging].tot++;
+    if(d.orders>1)vm[d.vestiging].ret++;
+    if(d.seg==='weekly')vm[d.vestiging].wk++;
+    vm[d.vestiging].omzet+=(d.omzet||0);
+    if(d.freq>0){vm[d.vestiging].freqSum+=d.freq;vm[d.vestiging].freqCnt++;}
+  });
+  const vestStats=Object.entries(vm).map(([v,s])=>({
+    vestiging:v,
+    totaal:s.tot,
+    terugkerend:s.ret,
+    terugkerendPct:s.tot?Math.round(s.ret/s.tot*100):0,
+    wekelijks:s.wk,
+    wekelijksPct:s.tot?Math.round(s.wk/s.tot*100):0,
+    gemLTV:hasOmzet&&s.tot?+(s.omzet/s.tot).toFixed(2):null,
+    gemInterval:s.freqCnt?Math.round(s.freqSum/s.freqCnt):null,
+  })).sort((a,b)=>b.terugkerendPct-a.terugkerendPct);
+
+  // Kanaal vergelijking
+  function chanS(arr){
+    const t=arr.length,r=arr.filter(d=>d.orders>1).length;
+    const wf=arr.filter(d=>d.freq>0);
+    const ai=wf.length?Math.round(wf.reduce((s,d)=>s+d.freq,0)/wf.length):null;
+    const ltv=hasOmzet&&t?+(arr.reduce((s,d)=>s+(d.omzet||0),0)/t).toFixed(2):null;
+    return{totaal:t,terugkerendPct:t?Math.round(r/t*100):0,gemInterval:ai,gemLTV:ltv,wekelijksPct:t?Math.round(arr.filter(d=>d.seg==='weekly').length/t*100):0};
+  }
+  const webS=chanS(allData.filter(d=>d.kanaal==='website'));
+  const platS=chanS(allData.filter(d=>d.kanaal==='platform'));
+
+  return`
+KLANTENDATA SAMENVATTING:
+- Totaal unieke klanten: ${tot}
+- Terugkerend (>1 bestelling): ${ret} (${Math.round(ret/tot*100)}%)
+- Segmenten: Wekelijks ${wk} (${Math.round(wk/tot*100)}%), Maandelijks ${mn} (${Math.round(mn/tot*100)}%), Incidenteel ${sp} (${Math.round(sp/tot*100)}%), Eenmalig ${nw} (${Math.round(nw/tot*100)}%)
+- Gemiddeld interval tussen bezoeken: ${avgInterval?avgInterval+' dagen':'onbekend'}
+- Eigen website klanten: ${web} | Platform (Thuisbezorgd): ${plat} | Beide kanalen: ${multi}
+${hasOmzet?`- Totale omzet in data: €${allData.reduce((s,d)=>s+(d.omzet||0),0).toFixed(2)} | Gem. LTV: €${(allData.reduce((s,d)=>s+(d.omzet||0),0)/tot).toFixed(2)}`:'- Geen omzetdata beschikbaar'}
+- Aantal imports: ${importHistory.length}
+
+KANAALVERGELIJKING:
+- Eigen website: ${webS.totaal} klanten | ${webS.terugkerendPct}% terugkerend | ${webS.wekelijksPct}% wekelijks | gem. interval: ${webS.gemInterval?webS.gemInterval+'d':'?'}${webS.gemLTV?` | LTV: €${webS.gemLTV}`:''}
+- Platform: ${platS.totaal} klanten | ${platS.terugkerendPct}% terugkerend | ${platS.wekelijksPct}% wekelijks | gem. interval: ${platS.gemInterval?platS.gemInterval+'d':'?'}${platS.gemLTV?` | LTV: €${platS.gemLTV}`:''}
+
+VESTIGINGEN (gesorteerd op % terugkerend):
+${vestStats.map(v=>`- ${v.vestiging}: ${v.totaal} klanten, ${v.terugkerendPct}% terugkerend, ${v.wekelijksPct}% wekelijks, gem. interval: ${v.gemInterval?v.gemInterval+'d':'?'}${v.gemLTV?`, LTV: €${v.gemLTV}`:''}`).join('\n')}
+  `.trim();
+}
+
+function initAiPage(){
+  // Altijd eerst data opnieuw opbouwen vanuit opgeslagen imports
+  if(importHistory.length&&!allData.length){
+    rebuildAllData();
+  }
+
+  const statsRow=document.getElementById('aiStatsRow');
+  const badges=document.getElementById('aiSnapBadges');
+  if(!statsRow)return;
+
+  if(!allData.length){
+    statsRow.innerHTML=`<div style="grid-column:1/-1;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:2rem;text-align:center">
+      <div style="font-size:32px;margin-bottom:10px">📂</div>
+      <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px">Nog geen data geladen</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:1rem">Importeer eerst een CSV-bestand om de AI te gebruiken</div>
+      <button class="btn btn-primary" onclick="showPage('import')">CSV importeren →</button>
+    </div>`;
+    return;
+  }
+
+  const tot=allData.length;
+  const ret=allData.filter(d=>d.orders>1).length;
+  const web=allData.filter(d=>d.kanaal==='website').length;
+  const vests=[...new Set(allData.map(d=>d.vestiging).filter(Boolean))];
+  const hasOmzet=allData.some(d=>d.omzet>0);
+  const avgLTV=hasOmzet?+(allData.reduce((s,d)=>s+(d.omzet||0),0)/tot).toFixed(2):null;
+
+  statsRow.innerHTML=`
+    <div style="background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem;display:flex;align-items:center;gap:12px">
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(108,63,255,.12),rgba(255,79,200,.08));display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">👥</div>
+      <div><div style="font-size:22px;font-weight:700;line-height:1">${tot.toLocaleString('nl-NL')}</div><div style="font-size:11px;color:var(--text3);margin-top:3px">Unieke klanten</div></div>
+    </div>
+    <div style="background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem;display:flex;align-items:center;gap:12px">
+      <div style="width:40px;height:40px;border-radius:12px;background:var(--green-bg);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🔄</div>
+      <div><div style="font-size:22px;font-weight:700;line-height:1;color:var(--green)">${Math.round(ret/tot*100)}%</div><div style="font-size:11px;color:var(--text3);margin-top:3px">Terugkerend</div></div>
+    </div>
+    <div style="background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem;display:flex;align-items:center;gap:12px">
+      <div style="width:40px;height:40px;border-radius:12px;background:rgba(0,201,141,.08);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🌐</div>
+      <div><div style="font-size:22px;font-weight:700;line-height:1">${web.toLocaleString('nl-NL')}</div><div style="font-size:11px;color:var(--text3);margin-top:3px">Via eigen website</div></div>
+    </div>
+    `+(hasOmzet?`<div style="background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem;display:flex;align-items:center;gap:12px">
+      <div style="width:40px;height:40px;border-radius:12px;background:rgba(108,63,255,.08);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">💶</div>
+      <div><div style="font-size:22px;font-weight:700;line-height:1">€${avgLTV}</div><div style="font-size:11px;color:var(--text3);margin-top:3px">Gem. LTV</div></div>
+    </div>`:`<div style="background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem;display:flex;align-items:center;gap:12px">
+      <div style="width:40px;height:40px;border-radius:12px;background:rgba(255,159,46,.08);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🏪</div>
+      <div><div style="font-size:22px;font-weight:700;line-height:1">${vests.length}</div><div style="font-size:11px;color:var(--text3);margin-top:3px">Vestigingen</div></div>
+    </div>`);
+
+  if(badges)badges.innerHTML=`<span style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;background:var(--green-bg);color:var(--green)">${importHistory.length} import${importHistory.length!==1?'s':''}</span><span style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(108,63,255,.1);color:var(--accent)">${vests.length} vestigingen</span>`+(hasOmzet?`<span style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(0,201,141,.1);color:var(--green)">💶 LTV data</span>`:'');
+}
+
+function askSuggestion(el){
+  const txt=el.textContent.trim();
+  document.getElementById('aiInput').value=txt;
+  sendAiMessage();
+}
+
+async function sendAiMessage(){
+  const input=document.getElementById('aiInput');
+  const msg=input.value.trim();
+  if(!msg||document.getElementById('aiSendBtn').disabled)return;
+  input.value='';
+
+  addAiMessage(msg,'user');
+
+  // Disable input
+  const btn=document.getElementById('aiSendBtn');
+  btn.disabled=true;btn.style.opacity='.5';
+
+  // Typing indicator
+  const typingId='typing_'+Date.now();
+  const messagesEl=document.getElementById('aiMessages');
+  messagesEl.innerHTML+=`<div class="ai-msg ai-msg-bot" id="${typingId}"><div class="ai-avatar">✨</div><div class="ai-bubble"><div class="ai-typing"><span></span><span></span><span></span></div></div></div>`;
+  messagesEl.scrollTop=messagesEl.scrollHeight;
+
+  const dataContext=buildDataContext();
+  const systemPrompt=`Je bent een data-analist assistent voor een Domino's franchise netwerk. Je hebt toegang tot de volgende klantendata:\n\n${dataContext}\n\nBeantwoord vragen in het Nederlands. Wees concreet en gebruik de cijfers uit de data. Geef actionable marketing inzichten. Houd antwoorden beknopt (max 3-4 zinnen tenzij gevraagd om meer detail). Gebruik geen markdown headers, maar wel bullet points waar nuttig.`;
+
+  aiHistory.push({role:'user',content:msg});
+
+  try{
+    const response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        system:systemPrompt,
+        messages:aiHistory.slice(-10) // keep last 10 messages for context
+      })
+    });
+    const data=await response.json();
+    const reply=data.content?.[0]?.text||'Geen antwoord ontvangen.';
+    aiHistory.push({role:'assistant',content:reply});
+
+    // Remove typing indicator
+    document.getElementById(typingId)?.remove();
+    addAiMessage(reply,'bot');
+  } catch(e){
+    document.getElementById(typingId)?.remove();
+    addAiMessage('Er ging iets mis bij het verbinden met de AI. Controleer je internetverbinding.','error');
+  }
+
+  btn.disabled=false;btn.style.opacity='1';
+}
+
+function addAiMessage(text,type){
+  const el=document.getElementById('aiMessages');
+  const isBot=type==='bot'||type==='error';
+  const avatar=isBot?'✨':(currentUser?.initials||'JG');
+  const bubbleClass=type==='error'?'ai-msg-error':'';
+  // Convert newlines to <br> and simple bullet points
+  const formatted=text.replace(/\n/g,'<br>').replace(/• /g,'• ');
+  el.innerHTML+=`<div class="ai-msg ${isBot?'ai-msg-bot':'ai-msg-user'} ${bubbleClass}">
+    <div class="ai-avatar" style="${!isBot?'background:var(--surface2);font-size:11px;font-weight:700;color:var(--accent)':''}">${avatar}</div>
+    <div class="ai-bubble">${formatted}</div>
+  </div>`;
+  el.scrollTop=el.scrollHeight;
+}
+
+// ══ EXPORT ══
+function exportCSV(data,name){
+  const rows=[['Voornaam','Achternaam','Vestiging','Telefoon','Email','Bestellingen','Totaal besteed','Eerste bestelling','Laatste bestelling','Gem. interval (dgn)','Segment']];
+  data.forEach(d=>rows.push([d.voornaam,d.achternaam,d.vestiging,d.telefoon,d.email,d.orders,d.omzet>0?d.omzet:'',fmt(d.first),fmt(d.last),d.freq||'',segLabel(d.seg)]));
+  const csv=rows.map(r=>r.map(x=>`"${x||''}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download=name+'.csv';a.click();
+  toast('✅ CSV geëxporteerd!');
+}
+</script>
+</body>
+</html>
