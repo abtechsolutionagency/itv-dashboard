@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     }
 
     const body = req.body || {};
-    const { model, system, messages, max_tokens } = body;
+    const { model, system, messages, max_tokens, temperature } = body;
 
     if (!system || !Array.isArray(messages) || messages.length === 0) {
       res.status(400).json({ error: 'Invalid payload. Expected {system, messages[]}.' });
@@ -33,6 +33,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: model || 'claude-sonnet-4-6',
         max_tokens: typeof max_tokens === 'number' ? max_tokens : 800,
+        ...(typeof temperature === 'number' && temperature >= 0 ? { temperature } : {}),
         system,
         messages,
       }),

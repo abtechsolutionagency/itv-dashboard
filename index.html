@@ -422,7 +422,7 @@ label.btn{cursor:pointer}
       <div class="page-header">
         <div>
           <div class="page-title">Importgeschiedenis</div>
-          <div style="font-size:13px;color:var(--text2);margin-top:4px">Alle wekelijkse imports opgeslagen in je browser</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:4px">Alleen de meest recente import staat in de database; elke nieuwe import vervangt de vorige.</div>
         </div>
         <div class="header-actions">
           <button class="btn btn-ghost" style="border-color:#ff4e6a;color:#ff4e6a" onclick="confirmClearHistory()">🗑 Alle data wissen</button>
@@ -476,7 +476,7 @@ label.btn{cursor:pointer}
         <div class="wiz-actions"><button class="btn btn-ghost btn-sm" onclick="wizStep(1)">← Terug</button><button class="btn btn-primary btn-sm" onclick="wizValidate()">Doorgaan →</button></div>
       </div>
       <div class="wizard-step" id="wiz3">
-        <div style="margin-bottom:1.25rem"><div style="font-size:15px;font-weight:700;margin-bottom:4px">✅ Bevestig import</div><div style="font-size:13px;color:var(--text2)">Controleer de samenvatting en klik op importeren.</div></div>
+        <div style="margin-bottom:1.25rem"><div style="font-size:15px;font-weight:700;margin-bottom:4px">✅ Bevestig import</div><div style="font-size:13px;color:var(--text2)">Elke import vervangt alle eerdere data in de database. Controleer de samenvatting en klik op importeren.</div></div>
         <div class="sum-grid" id="sumGrid"></div>
         <div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem">
           <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">📅 Datum van deze import</div>
@@ -511,6 +511,7 @@ label.btn{cursor:pointer}
 
       <!-- Stats row -->
       <div id="aiStatsRow" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem"></div>
+      <div id="aiTabularWarn" style="display:none;font-size:12px;color:var(--amber);margin:-4px 0 1rem;padding:10px 14px;background:var(--amber-bg);border-radius:var(--radius);border:1.5px solid var(--border)"></div>
 
       <!-- Suggestions chips -->
       <div style="margin-bottom:1rem;display:flex;gap:6px;flex-wrap:wrap" id="aiChips">
@@ -847,6 +848,8 @@ async function saveOneImport(imp){
   // 1) insert only import metadata into `imports` (data stays empty/unused)
   // 2) append customer rows into `import_rows` via RPC `append_import_data` in batches
   try{
+    apiProgSet(0.01,'Eerdere imports verwijderen uit database…');
+    await clearAllImports();
     apiProgSet(0.02,'Import aanmaken in Supabase…');
     const metaPayload={
       id:imp.id,
@@ -1421,9 +1424,8 @@ async function doImport(){
       throw new Error('Import werd niet gevonden na opslag (rollback of policy). Vernieuw de pagina of controleer RLS-policies voor tabel imports.');
     }
 
-    // Merge into current history (avoid full reload for large datasets)
-    importHistory=[...importHistory.filter(i=>i.id!==newId), newFromDb]
-      .sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
+    // Slechts één import tegelijk: dashboard = alleen dit bestand
+    importHistory=[newFromDb];
     rebuildAllData();
 
     if(allData.length){
@@ -1436,15 +1438,10 @@ async function doImport(){
     wizStep(1);
     showPage('overview');
 
-    const isReturn=newRecords.filter(d=>{
-      const k=clientKey(d);
-      return importHistory.slice(0,-1).some(imp=>imp.data.some(r=>clientKey(r)===k));
-    }).length;
-
     apiProgWaitingServer(false);
     apiProgSet(1,'✅ Klaar — data komt uit Supabase');
 
-    toast(`🎉 ${newRecords.length} klanten geïmporteerd · ${isReturn} terugkerend!`);
+    toast(`🎉 ${newRecords.length} klanten geïmporteerd. Eerdere importdata is vervangen.`);
     ok=true;
     console.log('✅ Import opgeslagen en geverifieerd in DB:',newId,newImp.label);
   }catch(e){
@@ -2296,7 +2293,202 @@ function renderChannelComparison(data){
 }
 
 // ══ AI ASSISTENT ══
+// Belangrijk: we sturen NIET alle rijen mee (te veel input-tokens, rate limit).
+// In plaats daarvan laat de AI eerst een "query plan" genereren (klein), voeren we die query lokaal uit op `allData`,
+// en sturen we alleen de samengevatte resultaten terug voor het uiteindelijke antwoord.
 let aiHistory=[];
+let aiContextFingerprint='';
+
+function getAiDataFingerprint(){
+  const imp=importHistory.map(i=>i.id).join('|');
+  return imp+'::'+allData.length;
+}
+
+function ym(d){
+  if(!d) return null;
+  try{
+    const dt=(d instanceof Date)?d:new Date(d);
+    if(isNaN(dt)) return null;
+    return dt.toISOString().slice(0,7); // YYYY-MM
+  }catch(_e){return null;}
+}
+
+function num(v){
+  const n=typeof v==='number'?v:parseFloat(String(v??'').replace(',','.'));
+  return isFinite(n)?n:null;
+}
+
+function toBool(v){
+  if(typeof v==='boolean')return v;
+  const s=String(v??'').toLowerCase().trim();
+  if(['1','true','ja','yes'].includes(s))return true;
+  if(['0','false','nee','no'].includes(s))return false;
+  return null;
+}
+
+const AI_QUERY_FIELDS={
+  vestiging:'string',
+  kanaal:'string',
+  seg:'string',
+  orders:'number',
+  omzet:'number',
+  visitCount:'number',
+  isMultiChannel:'boolean',
+  first:'date',
+  last:'date',
+  freq:'number'
+};
+
+function getFieldVal(row, field){
+  switch(field){
+    case 'vestiging': return row.vestiging||'';
+    case 'kanaal': return row.kanaal||'';
+    case 'seg': return row.seg||'';
+    case 'orders': return num(row.orders);
+    case 'omzet': return num(row.omzet);
+    case 'visitCount': return num(row.visitCount);
+    case 'isMultiChannel': return !!row.isMultiChannel;
+    case 'first': return row.first instanceof Date?row.first:(row.first?new Date(row.first):null);
+    case 'last': return row.last instanceof Date?row.last:(row.last?new Date(row.last):null);
+    case 'freq': return num(row.freq);
+    default: return null;
+  }
+}
+
+function matchFilter(row, f){
+  if(!f||!f.field||!f.op) return true;
+  const type=AI_QUERY_FIELDS[f.field];
+  if(!type) return true;
+  const v=getFieldVal(row, f.field);
+  const op=String(f.op).toLowerCase();
+
+  if(type==='string'){
+    const s=String(v||'').toLowerCase();
+    const t=String(f.value??'').toLowerCase();
+    if(op==='eq') return s===t;
+    if(op==='neq') return s!==t;
+    if(op==='contains') return s.includes(t);
+    return true;
+  }
+  if(type==='boolean'){
+    const b=!!v;
+    const tgt=toBool(f.value);
+    if(tgt==null) return true;
+    if(op==='eq') return b===tgt;
+    if(op==='neq') return b!==tgt;
+    return true;
+  }
+  if(type==='number'){
+    const n=num(v);
+    const t=num(f.value);
+    if(n==null) return false;
+    if(op==='eq') return t!=null?n===t:true;
+    if(op==='neq') return t!=null?n!==t:true;
+    if(op==='gt') return t!=null?n>t:true;
+    if(op==='gte') return t!=null?n>=t:true;
+    if(op==='lt') return t!=null?n<t:true;
+    if(op==='lte') return t!=null?n<=t:true;
+    if(op==='between' && Array.isArray(f.value) && f.value.length===2){
+      const a=num(f.value[0]),b=num(f.value[1]);
+      if(a==null||b==null) return true;
+      return n>=a && n<=b;
+    }
+    return true;
+  }
+  if(type==='date'){
+    const dt=v instanceof Date?v:(v?new Date(v):null);
+    if(!dt||isNaN(dt)) return false;
+    if(op==='ym_eq'){
+      const target=String(f.value||'');
+      return ym(dt)===target;
+    }
+    if(op==='between' && Array.isArray(f.value) && f.value.length===2){
+      const a=new Date(f.value[0]), b=new Date(f.value[1]);
+      if(isNaN(a)||isNaN(b)) return true;
+      return dt>=a && dt<=b;
+    }
+    return true;
+  }
+  return true;
+}
+
+function runQueryPlan(plan){
+  const filters=Array.isArray(plan?.filters)?plan.filters:[];
+  const groupBy=(Array.isArray(plan?.group_by)?plan.group_by:[]).filter(f=>AI_QUERY_FIELDS[f]);
+  const metric=plan?.metric||{type:'count'};
+  const metricType=String(metric?.type||'count').toLowerCase();
+  const metricField=metric?.field && AI_QUERY_FIELDS[metric.field]?metric.field:null;
+  const limit=Math.max(1, Math.min(200, plan?.limit||50));
+  const sort=plan?.sort||null; // {by:'value'|'key', dir:'desc'|'asc'}
+
+  const rows=allData.filter(r=>filters.every(f=>matchFilter(r,f)));
+
+  function agg(arr){
+    if(metricType==='count') return arr.length;
+    if(metricType==='sum' && metricField) return +arr.reduce((s,r)=>s+(num(getFieldVal(r,metricField))||0),0).toFixed(2);
+    if(metricType==='avg' && metricField){
+      const nums=arr.map(r=>num(getFieldVal(r,metricField))).filter(x=>x!=null);
+      if(!nums.length) return null;
+      return +((nums.reduce((s,x)=>s+x,0)/nums.length).toFixed(2));
+    }
+    if(metricType==='distinct_count' && metricField){
+      const set=new Set(arr.map(r=>String(getFieldVal(r,metricField)||'').trim()).filter(Boolean));
+      return set.size;
+    }
+    return arr.length;
+  }
+
+  if(!groupBy.length){
+    return{
+      type:'single',
+      total_rows:rows.length,
+      value:agg(rows)
+    };
+  }
+
+  const m=new Map();
+  for(const r of rows){
+    const key=groupBy.map(f=>String(getFieldVal(r,f)||'')).join(' | ');
+    if(!m.has(key)) m.set(key, []);
+    m.get(key).push(r);
+  }
+  let out=[...m.entries()].map(([k,arr])=>({key:k, value:agg(arr), n:arr.length}));
+  const dir=(String(sort?.dir||'desc').toLowerCase()==='asc')?1:-1;
+  const by=String(sort?.by||'value').toLowerCase();
+  out.sort((a,b)=>by==='key'?a.key.localeCompare(b.key)*dir:((a.value??-Infinity)-(b.value??-Infinity))*dir);
+  out=out.slice(0,limit);
+  return{
+    type:'grouped',
+    group_by:groupBy,
+    total_groups:m.size,
+    returned_groups:out.length,
+    rows:out
+  };
+}
+
+function buildAiSchemaContext(){
+  return[
+    'SCHEMA (velden per klantrecord; waarden komen uit dashboard):',
+    '- vestiging (string)',
+    '- kanaal (string: website|platform)',
+    '- seg (string: weekly|monthly|sporadic|new)',
+    '- orders (number)',
+    '- omzet (number)',
+    '- first (date: eerste bestelling)',
+    '- last (date: laatste bestelling)',
+    '- freq (number: interval in dagen)',
+    '- visitCount (number)',
+    '- isMultiChannel (boolean)',
+    '',
+    'QUERY PLAN JSON formaat:',
+    '{ metric: {type: \"count\"|\"sum\"|\"avg\"|\"distinct_count\", field?: <veld>}, filters?: [{field, op, value}], group_by?: [<veld>], limit?: number, sort?: {by:\"value\"|\"key\", dir:\"asc\"|\"desc\"} }',
+    '',
+    'Filter ops:',
+    '- strings: op eq|neq|contains',
+    '- numbers: op eq|neq|gt|gte|lt|lte|between (value:[a,b])',
+    '- dates: op ym_eq (value:\"YYYY-MM\") of between (value:[\"YYYY-MM-DD\",\"YYYY-MM-DD\"])',
+  ].join('\n');
+}
 
 function buildDataContext(){
   if(!allData.length)return'Geen data geladen.';
@@ -2346,7 +2538,35 @@ function buildDataContext(){
   const webS=chanS(allData.filter(d=>d.kanaal==='website'));
   const platS=chanS(allData.filter(d=>d.kanaal==='platform'));
 
+  const firstDates=allData.map(d=>d.first).filter(Boolean);
+  const lastDates=allData.map(d=>d.last).filter(Boolean);
+  const minFirst=firstDates.length?new Date(Math.min(...firstDates.map(d=>d.getTime()))):null;
+  const maxFirst=firstDates.length?new Date(Math.max(...firstDates.map(d=>d.getTime()))):null;
+  const minLast=lastDates.length?new Date(Math.min(...lastDates.map(d=>d.getTime()))):null;
+  const maxLast=lastDates.length?new Date(Math.max(...lastDates.map(d=>d.getTime()))):null;
+  const visitMult=allData.filter(d=>(d.visitCount||1)>1).length;
+
+  const importBlock=importHistory.length
+    ? importHistory.map(i=>{
+        const d=i.date?new Date(i.date):null;
+        const n=(i.data&&i.data.length)||i.count||'?';
+        return`- ${i.label||'Import'} (${d&&!isNaN(d)?fmt(d):'datum onbekend'}): ${n} rijen in dit bestand`;
+      }).join('\n')
+    : '- (Geen importmetadata — alleen geaggregeerde klanten)';
+
   return`
+BRON VAN DEZE CONTEXT (ALLEEN HET DASHBOARD / DE GEÏMPORTEERDE DATA):
+- Geen externe bronnen; geen marktinzicht buiten deze data.
+- Onder deze samenvatting staat (in dezelfde prompt) een RECORDNIVEAU TSV met alle klantrijen die in deze sessie passen — dat zijn dezelfde records als het dashboard (na dedup). Gebruik die rijen voor detailvragen (filters, top-N, tellingen).
+
+HUIDGE IMPORT-SNAPSHOT(S):
+${importBlock}
+
+DATUMBEREIK IN DE DATA (velden eerste/laatste bestelling per klant):
+- Eerste bestelling (min–max over klanten): ${minFirst&&maxFirst?`${fmt(minFirst)} t/m ${fmt(maxFirst)}`:'onbekend'}
+- Laatste bestelling (min–max over klanten): ${minLast&&maxLast?`${fmt(minLast)} t/m ${fmt(maxLast)}`:'onbekend'}
+- Klanten met meerdere weken zichtbaar in dashboard (visitCount>1): ${visitMult} — let op: cohort/maand-vergelijkingen over meerdere imports zijn alleen zinvol als er meerdere import-momenten in de geschiedenis staan.
+
 KLANTENDATA SAMENVATTING:
 - Totaal unieke klanten: ${tot}
 - Terugkerend (>1 bestelling): ${ret} (${Math.round(ret/tot*100)}%)
@@ -2354,7 +2574,7 @@ KLANTENDATA SAMENVATTING:
 - Gemiddeld interval tussen bezoeken: ${avgInterval?avgInterval+' dagen':'onbekend'}
 - Eigen website klanten: ${web} | Platform (Thuisbezorgd): ${plat} | Beide kanalen: ${multi}
 ${hasOmzet?`- Totale omzet in data: €${allData.reduce((s,d)=>s+(d.omzet||0),0).toFixed(2)} | Gem. LTV: €${(allData.reduce((s,d)=>s+(d.omzet||0),0)/tot).toFixed(2)}`:'- Geen omzetdata beschikbaar'}
-- Aantal imports: ${importHistory.length}
+- Aantal import-snapshots in dashboard: ${importHistory.length}
 
 KANAALVERGELIJKING:
 - Eigen website: ${webS.totaal} klanten | ${webS.terugkerendPct}% terugkerend | ${webS.wekelijksPct}% wekelijks | gem. interval: ${webS.gemInterval?webS.gemInterval+'d':'?'}${webS.gemLTV?` | LTV: €${webS.gemLTV}`:''}
@@ -2414,6 +2634,18 @@ function initAiPage(){
     </div>`);
 
   if(badges)badges.innerHTML=`<span style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;background:var(--green-bg);color:var(--green)">${importHistory.length} import${importHistory.length!==1?'s':''}</span><span style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(108,63,255,.1);color:var(--accent)">${vests.length} vestigingen</span>`+(hasOmzet?`<span style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(0,201,141,.1);color:var(--green)">💶 LTV data</span>`:'');
+
+  const tw=document.getElementById('aiTabularWarn');
+  if(tw){
+    tw.style.display='block';
+    tw.textContent='AI gebruikt een slimme query-modus: jouw volledige dataset blijft lokaal, alleen samenvattingen/uitkomsten worden naar de AI gestuurd (minder tokens, geen rate-limit errors).';
+  }
+
+  const fp=getAiDataFingerprint();
+  if(fp!==aiContextFingerprint){
+    aiContextFingerprint=fp;
+    aiHistory=[];
+  }
 }
 
 function askSuggestion(el){
@@ -2426,6 +2658,10 @@ async function sendAiMessage(){
   const input=document.getElementById('aiInput');
   const msg=input.value.trim();
   if(!msg||document.getElementById('aiSendBtn').disabled)return;
+  if(!allData.length){
+    addAiMessage('Er is nog geen dashboarddata. Importeer eerst een CSV op de pagina “CSV importeren”.','error');
+    return;
+  }
   input.value='';
 
   addAiMessage(msg,'user');
@@ -2441,34 +2677,99 @@ async function sendAiMessage(){
   messagesEl.scrollTop=messagesEl.scrollHeight;
 
   const dataContext=buildDataContext();
-  const systemPrompt=`Je bent een data-analist assistent voor een Domino's franchise netwerk. Je hebt toegang tot de volgende klantendata:\n\n${dataContext}\n\nBeantwoord vragen in het Nederlands. Wees concreet en gebruik de cijfers uit de data. Geef actionable marketing inzichten. Houd antwoorden beknopt (max 3-4 zinnen tenzij gevraagd om meer detail). Gebruik geen markdown headers, maar wel bullet points waar nuttig.`;
+  const schemaContext=buildAiSchemaContext();
+  const systemPrompt=[
+    "Je bent een strikte data-assistent voor dit dashboard. Je enige bron van waarheid is het blok DATA_CONTEXT hieronder (samenvatting + record-TSV).",
+    "",
+    "DATA_CONTEXT:",
+    dataContext,
+    "",
+    "SCHEMA:",
+    schemaContext,
+    "",
+    "REGELS (zeer belangrijk):",
+    "1) Antwoord uitsluitend op basis van DATA_CONTEXT + resultaten die de gebruiker/het systeem aanlevert. Gebruik geen algemene kennis over de markt, concurrenten of branches tenzij je het expliciet labelt als 'Buiten data (hypothese):'.",
+    "2) Voor elke vraag: maak eerst een QUERY PLAN JSON volgens SCHEMA zodat het systeem de berekening op de volledige dataset kan uitvoeren. Output ALLEEN geldige JSON, geen extra tekst.",
+    "4) Geen markdown-koppen (#). Bullet points (•) zijn toegestaan.",
+    "5) Taal: Nederlands.",
+  ].join("\n");
 
   aiHistory.push({role:'user',content:msg});
 
   try{
-    const response=await fetch('/api/ai',{
+    // 1) Ask for a query plan (small prompt)
+    const planRes=await fetch('/api/ai',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         model:'claude-sonnet-4-6',
-        max_tokens:900,
+        max_tokens:700,
+        temperature:0,
         system:systemPrompt,
-        messages:aiHistory.slice(-10).map(m=>({role:m.role,content:m.content}))
+        messages:[...aiHistory.slice(-6).map(m=>({role:m.role,content:m.content})), {role:'user',content:msg}]
       })
     });
-    const data=await response.json();
-    if(!response.ok){
-      throw new Error(data?.error||('HTTP '+response.status));
+    const planData=await planRes.json();
+    if(!planRes.ok) throw new Error(planData?.error||('HTTP '+planRes.status));
+    const planText=(planData?.text||'').trim();
+    let plan=null;
+    try{
+      plan=JSON.parse(planText);
+    }catch(_e){
+      // fallback: ask simple total count if plan can't be parsed
+      plan={metric:{type:'count'}};
     }
-    const reply=data?.text||'Geen antwoord ontvangen.';
+
+    // 2) Execute plan locally on full dataset
+    let result=null;
+    try{
+      result=runQueryPlan(plan);
+    }catch(e){
+      console.error('Query plan exec failed',e,plan);
+      result={error:'Query plan kon niet uitgevoerd worden.'};
+    }
+
+    // 3) Ask AI to answer using computed results
+    const answerSystem=[
+      "Je bent een strikte data-assistent voor dit dashboard.",
+      "",
+      "DATA_CONTEXT (samenvatting):",
+      dataContext,
+      "",
+      "QUERY_PLAN_JSON:",
+      JSON.stringify(plan),
+      "",
+      "QUERY_RESULT_JSON:",
+      JSON.stringify(result),
+      "",
+      "REGELS:",
+      "1) Beantwoord de vraag uitsluitend op basis van QUERY_RESULT_JSON en DATA_CONTEXT. Geen verzonnen cijfers.",
+      "2) Als de vraag niet te beantwoorden is met deze resultaten, leg uit welke extra query nodig is.",
+      "3) Antwoord in het Nederlands. Gebruik korte zinnen en bullet points waar nuttig.",
+    ].join("\n");
+
+    const answerRes=await fetch('/api/ai',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:1200,
+        temperature:0.25,
+        system:answerSystem,
+        messages:[{role:'user',content:msg}]
+      })
+    });
+    const answerData=await answerRes.json();
+    if(!answerRes.ok) throw new Error(answerData?.error||('HTTP '+answerRes.status));
+    const reply=(answerData?.text||'Geen antwoord ontvangen.').trim();
+    aiHistory.push({role:'user',content:msg});
     aiHistory.push({role:'assistant',content:reply});
 
-    // Remove typing indicator
     document.getElementById(typingId)?.remove();
     addAiMessage(reply,'bot');
   } catch(e){
     document.getElementById(typingId)?.remove();
-    addAiMessage('Er ging iets mis bij het verbinden met de AI: '+String(e.message||e).slice(0,140),'error');
+    addAiMessage('Er ging iets mis bij het verbinden met de AI: '+String(e.message||e).slice(0,180),'error');
   }
 
   btn.disabled=false;btn.style.opacity='1';

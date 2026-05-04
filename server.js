@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 
 const app = express();
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '3mb' }));
 
 const PORT = process.env.PORT || 5173;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
@@ -16,7 +16,7 @@ app.post('/api/ai', async (req, res) => {
       return;
     }
 
-    const { model, system, messages, max_tokens } = req.body || {};
+    const { model, system, messages, max_tokens, temperature } = req.body || {};
 
     if (!system || !Array.isArray(messages) || !messages.length) {
       res.status(400).json({ error: 'Invalid payload. Expected {system, messages[]}.' });
@@ -33,6 +33,7 @@ app.post('/api/ai', async (req, res) => {
       body: JSON.stringify({
         model: model || 'claude-sonnet-4-6',
         max_tokens: typeof max_tokens === 'number' ? max_tokens : 800,
+        ...(typeof temperature === 'number' && temperature >= 0 ? { temperature } : {}),
         system,
         messages
       })
