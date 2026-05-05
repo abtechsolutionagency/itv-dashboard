@@ -54,6 +54,33 @@ body{background:var(--bg);color:var(--text);min-height:100vh}
 
 /* APP SHELL */
 .app{display:none}
+.global-loader{
+  position:fixed;inset:0;z-index:9999;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(247,244,255,.72);
+  backdrop-filter: blur(6px);
+}
+.global-loader.show{display:flex}
+.gl-card{
+  width:min(520px,calc(100vw - 40px));
+  background:#fff;border:1.5px solid var(--border);
+  border-radius:22px;
+  box-shadow:0 30px 80px rgba(108,63,255,.18);
+  padding:22px 22px 18px;
+}
+.gl-top{display:flex;gap:14px;align-items:flex-start}
+.gl-spinner{
+  width:40px;height:40px;border-radius:50%;
+  border:3px solid rgba(108,63,255,.18);
+  border-top-color: var(--accent);
+  animation: glspin .9s linear infinite;
+  flex-shrink:0;
+}
+@keyframes glspin{to{transform:rotate(360deg)}}
+.gl-title{font-size:15px;font-weight:800;letter-spacing:-.2px;margin-top:2px}
+.gl-sub{font-size:12px;color:var(--text2);margin-top:6px;line-height:1.55}
+.gl-foot{margin-top:14px;font-size:11px;color:var(--text3);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.gl-mono{font-family:'DM Mono',monospace}
 .sidebar{position:fixed;left:0;top:0;width:240px;height:100vh;background:#fff;border-right:1.5px solid var(--border);padding:1.5rem 0;display:flex;flex-direction:column;z-index:100;overflow-y:auto}
 .sidebar-logo{display:flex;align-items:center;gap:10px;padding:0 1.25rem 1.5rem;border-bottom:1.5px solid var(--border)}
 .sidebar-logo-icon{width:36px;height:36px;background:linear-gradient(135deg,#6c3fff,#ff4fc8);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
@@ -309,6 +336,23 @@ label.btn{cursor:pointer}
     <button class="login-btn" onclick="doLogin()">Inloggen →</button>
     <div class="login-err" id="loginErr">❌ Inloggen mislukt.</div>
     
+  </div>
+</div>
+
+<!-- Global loading overlay (used when loading large datasets) -->
+<div class="global-loader" id="globalLoader" aria-live="polite" aria-busy="true">
+  <div class="gl-card">
+    <div class="gl-top">
+      <div class="gl-spinner" aria-hidden="true"></div>
+      <div style="min-width:0;flex:1">
+        <div class="gl-title" id="glTitle">Data laden…</div>
+        <div class="gl-sub" id="glSub">Even geduld — grote imports worden in batches geladen.</div>
+      </div>
+    </div>
+    <div class="gl-foot">
+      <span id="glFootLeft">Je dashboard verschijnt zodra de data klaar is.</span>
+      <span class="gl-mono" id="glFootRight"></span>
+    </div>
   </div>
 </div>
 
@@ -609,6 +653,38 @@ function setLoginError(msg){
   el.style.display='block';
 }
 function clearLoginError(){document.getElementById('loginErr').style.display='none';}
+
+// ══ GLOBAL LOADING UI ══
+let dataLoading=false;
+function setGlobalLoading(on,{title,sub,footRight}={}){
+  dataLoading=!!on;
+  const el=document.getElementById('globalLoader');
+  if(!el) return;
+  el.classList.toggle('show',!!on);
+  const t=document.getElementById('glTitle');
+  const s=document.getElementById('glSub');
+  const fr=document.getElementById('glFootRight');
+  if(t && title!=null) t.textContent=title;
+  if(s && sub!=null) s.textContent=sub;
+  if(fr){
+    fr.textContent=footRight||'';
+    fr.style.display=footRight? 'inline' : 'none';
+  }
+  // While loading, never show "empty" state (prevents confusion)
+  const ovEmpty=document.getElementById('ovEmpty');
+  if(ovEmpty) ovEmpty.style.display = on ? 'none' : (document.getElementById('ovDash')?.style.display==='none'?'block':'none');
+}
+function isDataLoading(){return dataLoading;}
+
+// Avoid double-loading (doLogin + onAuthStateChange can both trigger).
+let _activeSessionKey=null;
+let _dataLoadPromise=null;
+let _dataReady=false;
+function markDataNotReady(){
+  _dataReady=false;
+  _dataLoadPromise=null;
+  _activeSessionKey=null;
+}
 
 // `auth.getSession()` can hang indefinitely (blocked refresh tab, flaky network).
 // Until it resolves no `fetch` runs → no REST calls visible in DevTools.
@@ -916,9 +992,38 @@ async function loadImports(){
     // Load metadata first, then fetch rows per import (batched via range pagination).
     const imports=mapImportRows(rows).map(i=>({...i, data:[]}));
 
+    const total=imports.length;
+    if(total){
+      setGlobalLoading(true,{
+        title:'Data laden…',
+        sub:`Imports gevonden: ${total}. Klantregels worden nu opgehaald…`,
+        
+      });
+    }
+
+    let done=0;
     for(const imp of imports){
-      const slimRows=await fetchAllImportRows(imp.id);
+      setGlobalLoading(true,{
+        title:'Data laden…',
+        sub:`Bezig met ${imp.label||imp.id} — klantregels ophalen in batches…`,
+        
+      });
+      const slimRows=await fetchAllImportRows(imp.id,(info)=>{
+        // Live status (no heavy DOM work)
+        const count=info?.rowsLoaded||0;
+        setGlobalLoading(true,{
+          title:'Data laden…',
+          sub:`Bezig met ${imp.label||imp.id} — ${count.toLocaleString('nl-NL')} rijen geladen…`,
+          
+        });
+      });
       imp.data=slimRows.map(expandRecord);
+      done++;
+      setGlobalLoading(true,{
+        title:'Data laden…',
+        sub:`Import ${imp.label||imp.id} klaar (${imp.data.length.toLocaleString('nl-NL')} rijen). Volgende import…`,
+        
+      });
     }
 
     return imports;
@@ -931,7 +1036,7 @@ async function loadImports(){
   }
 }
 
-async function fetchAllImportRows(importId){
+async function fetchAllImportRows(importId, onProgress){
   const out=[];
   const pageSize=5000;
   for(let offset=0;;offset+=pageSize){
@@ -944,6 +1049,9 @@ async function fetchAllImportRows(importId){
     });
     const rows=(page||[]).map(r=>r.row_data);
     out.push(...rows);
+    if(typeof onProgress==='function'){
+      try{onProgress({importId, pageOffset:offset, pageSize, lastPageCount:rows.length, rowsLoaded:out.length});}catch(_e){/* ignore */}
+    }
     if(rows.length<pageSize) break;
   }
   return out;
@@ -993,48 +1101,41 @@ function clientKey(d){
   return'naam:'+(d.naam||'').toLowerCase().trim();
 }
 
-// Merge all imports into allData, enriching each klant with visitCount across weeks
+// Build allData for UI tables/charts.
+// IMPORTANT: allData contains EVERY imported row (no client-side de-dupe),
+// so totals match the file / stored rows. We still use clientKey() elsewhere
+// for "new vs returning" logic across weeks.
 function rebuildAllData(){
   if(!importHistory.length){allData=[];return;}
-  const master={};
+  const out=[];
   importHistory.forEach((imp,weekIdx)=>{
-    imp.data.forEach(d=>{
-      const k=clientKey(d);
-      if(!master[k]){
-        master[k]={...d,visitWeeks:[],visitDates:[],totalVisits:0,omzet:0,cohortWeek:imp.id,cohortLabel:imp.label,kanalen:new Set()};
-      }
-      const existing=master[k];
-      if(!existing.first||d.first&&d.first<existing.first)existing.first=d.first;
-      if(!existing.last||d.last&&d.last>existing.last)existing.last=d.last;
-      existing.orders=Math.max(existing.orders||1,d.orders||1);
-      if(d.omzet>existing.omzet)existing.omzet=d.omzet;
-      if(!existing.visitWeeks.includes(imp.id))existing.visitWeeks.push(imp.id);
-      existing.visitDates.push({weekLabel:imp.label,weekId:imp.id,weekIdx,date:d.last});
-      existing.totalVisits=existing.visitWeeks.length;
-      if(d.vestiging)existing.vestiging=d.vestiging;
-      // Track which channels this customer has used
-      existing.kanalen.add(d.kanaal||'platform');
-      // Update email if we got one now
-      if(d.email&&d.email.includes('@')&&!existing.email){existing.email=d.email;existing.kanalen.add('website');}
+    (imp.data||[]).forEach(src=>{
+      const d={...src};
+      d.cohortWeek=imp.id;
+      d.cohortLabel=imp.label;
+      d.visitWeeks=[imp.id];
+      d.visitDates=[{weekLabel:imp.label,weekId:imp.id,weekIdx,date:d.last}];
+      d.totalVisits=1;
+      d.visitCount=1;
+
+      const span=daysBetween(d.first,d.last);
+      const effectiveOrders=Math.max(d.orders||1,1);
+      d.freq=span&&effectiveOrders>1?Math.round(span/(effectiveOrders-1)):null;
+      d.seg=getSeg(effectiveOrders,span);
+      d.orders=effectiveOrders;
+      d.avgOrderVal=d.omzet&&d.orders>0?+(d.omzet/d.orders).toFixed(2):0;
+
+      const channels=[];
+      if(d.kanaal) channels.push(d.kanaal);
+      if(d.email&&d.email.includes('@')) channels.push('website');
+      d.kanalen=[...new Set(channels.length?channels:['platform'])];
+      d.kanaal=d.email&&d.email.includes('@')?'website':(d.kanaal||'platform');
+      d.isMultiChannel=d.kanalen.includes('website')&&d.kanalen.includes('platform');
+
+      out.push(d);
     });
   });
-  allData=Object.values(master).map(d=>{
-    const span=daysBetween(d.first,d.last);
-    const visits=d.totalVisits;
-    const effectiveOrders=Math.max(d.orders||1,visits);
-    const freq=span&&effectiveOrders>1?Math.round(span/(effectiveOrders-1)):null;
-    d.freq=freq;
-    d.seg=getSeg(effectiveOrders,span);
-    d.orders=effectiveOrders;
-    d.visitCount=visits;
-    d.avgOrderVal=d.omzet&&d.orders>0?+(d.omzet/d.orders).toFixed(2):0;
-    // Determine kanaal display
-    const kanalen=d.kanalen instanceof Set?[...d.kanalen]:d.kanalen||[d.kanaal||'platform'];
-    d.kanaal=d.email&&d.email.includes('@')?'website':'platform';
-    d.isMultiChannel=kanalen.includes('website')&&kanalen.includes('platform');
-    d.kanalen=kanalen;
-    return d;
-  });
+  allData=out;
 }
 
 function getWeekLabel(date){
@@ -1145,6 +1246,8 @@ let authEpoch=0;
 function resetUiToLoggedOut(){
   authEpoch++;
   currentUser=null;allData=[];filtered=[];
+  markDataNotReady();
+  setGlobalLoading(false);
   document.getElementById('appScreen').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('lPass').value='';
@@ -1166,8 +1269,10 @@ async function enterAppAsAdmin(email){
   document.getElementById('navVest').style.display='flex';
 
   toast('⏳ Data laden uit database...','#6c3fff');
+  setGlobalLoading(true,{title:'Data laden…',sub:'Klantdata wordt opgehaald. Dit kan even duren bij grote bestanden…'});
   importHistory=await loadImports();
   if(epoch!==authEpoch) return;
+  setGlobalLoading(false);
   if(importHistory.length){
     rebuildAllData();
     if(allData.length){
@@ -1179,6 +1284,8 @@ async function enterAppAsAdmin(email){
     toast('👋 Welkom terug! '+importHistory.length+' import(en) geladen.');
   } else {
     if(epoch!==authEpoch) return;
+    document.getElementById('ovDash').style.display='none';
+    document.getElementById('ovEmpty').style.display='block';
     toast('Welkom terug! 👋');
   }
 }
@@ -1192,6 +1299,15 @@ async function applySessionToUi(session){
     return;
   }
   if(authUiBusy) return;
+  // Single-flight per session: avoid running full data load twice
+  // IMPORTANT: access_token can change between doLogin() and onAuthStateChange().
+  // Use stable identity so we don't double-load.
+  const sessKey=String(session?.user?.id||email||'');
+  if(_dataReady && _activeSessionKey===sessKey) return;
+  if(_dataLoadPromise && _activeSessionKey===sessKey){
+    await _dataLoadPromise;
+    return;
+  }
   authUiBusy=true;
   try{
     if(!ADMIN_EMAIL_ALLOWLIST.includes(email)){
@@ -1200,8 +1316,14 @@ async function applySessionToUi(session){
       setLoginError('❌ Geen toegang. Dit account is geen admin.');
       return;
     }
-    await enterAppAsAdmin(email);
+    _activeSessionKey=sessKey;
+    _dataLoadPromise=(async ()=>{
+      await enterAppAsAdmin(email);
+      _dataReady=true;
+    })();
+    await _dataLoadPromise;
   } finally {
+    _dataLoadPromise=null;
     authUiBusy=false;
   }
 }
@@ -1591,7 +1713,7 @@ function renderMetrics(data){
     <div class="metric-card" style="border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1.35rem;position:relative;overflow:hidden"><div class="mc-stripe" style="background:linear-gradient(90deg,#6c3fff,#ff4fc8);position:absolute;top:0;left:0;right:0;height:3px"></div><div class="metric-label">LTV terugkerend</div><div class="metric-value" style="font-size:22px">${fmtEur(avgRetLTV)}</div><div class="metric-sub">vs nieuw: ${fmtEur(tot&&hasOmzet?+(data.filter(d=>d.visitCount===1).reduce((s,d)=>s+(d.omzet||0),0)/Math.max(nieuw,1)).toFixed(2):0)}</div></div>`:'';
 
   document.getElementById('metricsRow').innerHTML=`
-    <div class="metric-card mc-blue"><div class="mc-stripe"></div><div class="metric-label">Totaal klanten</div><div class="metric-value">${tot}</div><div class="metric-sub">unieke klanten</div></div>
+    <div class="metric-card mc-blue"><div class="mc-stripe"></div><div class="metric-label">Totaal klanten</div><div class="metric-value">${tot}</div></div>
     <div class="metric-card mc-green"><div class="mc-stripe"></div><div class="metric-label">Terugkerend</div><div class="metric-value">${pct}%</div><span class="metric-trend trend-${pct>=50?'up':'down'}">${pct>=50?'↑':'↓'} ${ret} klanten</span></div>
     <div class="metric-card" style="border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1.35rem;position:relative;overflow:hidden"><div class="mc-stripe" style="background:linear-gradient(90deg,#ff4fc8,#ff9f2e);position:absolute;top:0;left:0;right:0;height:3px"></div><div class="metric-label">Nieuwe klanten</div><div class="metric-value" style="color:var(--pink)">${nieuw}</div><span class="metric-trend" style="background:rgba(255,79,200,.1);color:var(--pink)">${nieuwPct}% ${prevLabel}</span></div>
     <div class="metric-card mc-amber"><div class="mc-stripe"></div><div class="metric-label">Wekelijks terugkerend</div><div class="metric-value">${wk}</div><div class="metric-sub">${tot?Math.round(wk/tot*100):0}% van totaal</div></div>
